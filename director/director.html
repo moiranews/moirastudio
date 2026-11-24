@@ -123,7 +123,10 @@
   .snd.dead { background:transparent; border:1px dashed var(--air); color:#ff9aa0; }
   .snd.short { box-shadow:inset -3px 0 0 var(--warn); }
   .snd.done { opacity:.5; }
-  .keyrow .snds { display:flex; gap:3px; margin-top:4px; }
+  .lane.snds { position:relative; height:16px; }
+  .lane.snds .snd { position:absolute; top:0; }
+  .keyrow .ks { display:flex; gap:3px; margin-top:3px; }
+  .keyrow .ks .snd { width:64px; } .keyrow .ks .snd.w2 { width:131px; } .keyrow .ks .snd.sp { visibility:hidden; }
   .lane.g { position:relative; height:20px; }
   .gs { position:absolute; top:0; height:20px; line-height:16px; border-radius:3px; padding:0 7px; font-size:11px; font-weight:650; background:rgba(224,138,30,.22); color:#ffd9a6; border:2px solid transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
   .gs.timed { background:rgba(224,138,30,.45); color:#ffe9cc; }
@@ -294,15 +297,15 @@
       <button type="button" class="qbtn" id="btnKey" aria-label="Format key" aria-expanded="false">?</button>
       <div class="keypop" id="keyPop" role="dialog" aria-label="Format key" hidden>
         <h3>Format key · the desk's story formats</h3>
-        <div class="keyrow"><span class="fmt">READ</span><div><p>Presenter in vision reads to camera.</p><div class="snds"><span class="snd pres">PRES</span></div></div></div>
-        <div class="keyrow"><span class="fmt">WRAP</span><div><p>Presenter intro, then a clip with its own sound.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd sot">VT SOT</span></div></div></div>
-        <div class="keyrow"><span class="fmt">CLIP</span><div><p>A single clip played with its own sound.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd sot">VT SOT</span></div></div></div>
-        <div class="keyrow"><span class="fmt">OOV</span><div><p>Out of vision: the presenter reads over pictures.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd off">PRES · VT OFF</span></div></div></div>
-        <div class="keyrow"><span class="fmt">ULAY</span><div><p>Underlay: pictures under the presenter's read, natural sound low.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd off">PRES · VT OFF</span></div></div></div>
-        <div class="keyrow"><span class="fmt">OOV/CLIP</span><div><p>Presenter over pictures, then the clip's sound comes up.</p><div class="snds"><span class="snd off">PRES · VT OFF</span><span class="snd sot">▲ VT SOT</span></div></div></div>
-        <div class="keyrow"><span class="fmt">ULAY/CLIP</span><div><p>Underlay into a clip with its own sound.</p><div class="snds"><span class="snd off">PRES · VT OFF</span><span class="snd sot">▲ VT SOT</span></div></div></div>
+        <div class="keyrow"><span class="fmt">READ</span><div><p>Presenter in vision reads to camera.</p><div class="ks"><span class="snd pres">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">WRAP</span><div><p>Presenter intro, then a clip with its own sound.</p><div class="ks"><span class="snd sp"></span><span class="snd sot">VT SOT</span></div><div class="ks"><span class="snd pres">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">CLIP</span><div><p>A single clip played with its own sound.</p><div class="ks"><span class="snd sp"></span><span class="snd sot">VT SOT</span></div><div class="ks"><span class="snd pres">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">OOV</span><div><p>Out of vision: the presenter reads over pictures.</p><div class="ks"><span class="snd sp"></span><span class="snd off">VT OFF</span></div><div class="ks"><span class="snd pres w2">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">ULAY</span><div><p>Underlay: pictures under the presenter's read, natural sound low.</p><div class="ks"><span class="snd sp"></span><span class="snd off">VT OFF</span></div><div class="ks"><span class="snd pres w2">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">OOV/CLIP</span><div><p>Presenter over pictures, then the clip's sound comes up.</p><div class="ks"><span class="snd off">VT OFF</span><span class="snd sot">▲ VT SOT</span></div><div class="ks"><span class="snd pres">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">ULAY/CLIP</span><div><p>Underlay into a clip with its own sound.</p><div class="ks"><span class="snd off">VT OFF</span><span class="snd sot">▲ VT SOT</span></div><div class="ks"><span class="snd pres">PRES</span></div></div></div>
         <div class="keyrow"><span class="fmt">LIVE</span><p>A live contributor or link. Shown as cameras for now.</p></div>
-        <div class="keyrow"><span class="lbl">Sound</span><p>From each clip's SOT or OFF on the desk; OOV and ULAY clips are OFF unless marked SOT. An amber edge: the words run past the pictures.</p></div>
+        <div class="keyrow"><span class="lbl">Sound</span><p>Two lanes under the shots: the clip's own sound, then the presenter's mic. From each clip's SOT or OFF on the desk; OOV and ULAY clips are OFF unless marked SOT. An amber edge: the words run past the pictures.</p></div>
         <div class="keyrow"><span class="lbl">Columns</span><p>Est: planned length · Act: actual · Front: planned hit time · Back: time left to off air from the start of that story</p></div>
       </div>
     </div>
@@ -1572,30 +1575,54 @@ function render() {
       x += w + GAP;
     });
 
-    // ---- sound lane: who is heard under each shot, same widths as the vision lane ----
-    const laneS = document.createElement('div'); laneS.className = 'lane s';
-    const snd = (cls, text, w, tip) => {
-      const x = document.createElement('span');
-      x.className = 'snd ' + cls; x.style.width = Math.max(0, w) + 'px'; x.textContent = text; if (tip) x.title = tip;
-      laneS.append(x);
+    // ---- sound: two lanes under the shots, placed by the vision lane's x ----
+    // The clip's own sound under each VT (only if the story has one), and the presenter's mic on
+    // its own lane: one bar for as long as it's live, so a read that carries on over OFF pictures
+    // runs unbroken from the camera shot across the pictures, and stops where the SOT comes up.
+    const lane = cls => { const l = document.createElement('div'); l.className = 'lane snds ' + cls; l.style.width = Math.ceil(x) + 'px'; return l; };
+    const put = (l, cls, text, left, w, tip) => {
+      const c = document.createElement('span');
+      c.className = 'snd ' + cls; c.style.left = left + 'px'; c.style.width = Math.max(0, w) + 'px'; c.textContent = text;
+      if (tip) c.title = tip;
+      l.append(c);
     };
+    const isDone = i => els[i].state === 'done' && i !== onAir?.el;
+    if (vis.some(i => els[i].type === 'vt')) {
+      const laneS = lane('vts');
+      vis.forEach((i, n) => {
+        const e = els[i], w = widths[n], left = lefts[i], done = isDone(i) ? ' done' : '';
+        if (e.type !== 'vt') return;
+        if (isMissing(e)) return put(laneS, 'dead' + done, 'NO PICTURES', left, w, 'No clip to play');
+        if (e.sound !== 'off') return put(laneS, 'sot' + done, 'VT SOT', left, w, 'Clip at full sound; presenter mic closed');
+        const short = picsShort(e) ? ' short' : '';
+        const tip = `Natural sound low; the presenter reads ${fmt(e.readMs)} over the pictures`;
+        const offText = w => (w >= 50 ? 'VT OFF' : 'OFF');
+        if (e.sotUpMs == null) return put(laneS, 'off' + short + done, offText(w), left, w, tip);
+        // one file, OOV then SOT: split the bar where the sound comes up
+        const at = Math.round(w * Math.min(1, e.sotUpMs / (elDur(i) || 1))), rest = w - at;
+        put(laneS, 'off' + done, offText(at - GAP), left, at - GAP, tip);
+        put(laneS, 'sot' + done, rest >= 120 ? `▲ ${fmt(e.sotUpMs)} VT SOT` : rest >= 76 ? '▲ VT SOT' : rest >= 48 ? '▲ SOT' : '▲',
+          left + at, rest, `Clip sound up at ${fmt(e.sotUpMs)}; presenter mic closed`);
+      });
+      track.append(laneS);
+    }
+    // presenter: live on cameras and graphics, and over OFF pictures up to any SOT
+    const mic = [];
     vis.forEach((i, n) => {
-      const e = els[i], w = widths[n], done = e.state === 'done' && i !== onAir?.el ? ' done' : '';
-      if (e.type !== 'vt') return snd('pres' + done, 'PRES', w, 'Presenter mic live');
-      if (isMissing(e)) return e.sound === 'off'
-        ? snd('dead' + done, 'PRES · NO PICTURES', w, 'Presenter reads, but there are no pictures to read over')
-        : snd('dead' + done, 'NO PICTURES', w, 'No clip to play');
-      if (e.sound !== 'off') return snd('sot' + done, 'VT SOT', w, 'Clip at full sound; presenter mic closed');
-      const short = picsShort(e) ? ' short' : '';
-      const tip = `Presenter reads ${fmt(e.readMs)} over the pictures; natural sound low`;
-      const offText = w => (w >= 100 ? 'PRES · VT OFF' : w >= 50 ? 'VT OFF' : 'OFF');
-      if (e.sotUpMs == null) return snd('off' + short + done, offText(w), w, tip);
-      // one file, OOV then SOT: split the bar where the sound comes up
-      const at = Math.round(w * Math.min(1, e.sotUpMs / (elDur(i) || 1))), rest = w - at;
-      snd('off' + done, offText(at - GAP), at - GAP, tip);
-      snd('sot' + done, rest >= 120 ? `▲ ${fmt(e.sotUpMs)} VT SOT` : rest >= 76 ? '▲ VT SOT' : rest >= 48 ? '▲ SOT' : '▲', rest, `Clip sound up at ${fmt(e.sotUpMs)}; presenter mic closed`);
+      const e = els[i], w = widths[n], left = lefts[i];
+      let end = null;
+      if (e.type !== 'vt' || e.sound === 'off') end = left + w;
+      if (e.type === 'vt' && e.sound === 'off' && e.sotUpMs != null && !isMissing(e))
+        end = left + Math.round(w * Math.min(1, e.sotUpMs / (elDur(i) || 1))) - GAP;
+      if (end == null) return;
+      const last = mic.at(-1);
+      if (last && left <= last.end + GAP + 1) { last.end = end; last.done = last.done && isDone(i); last.noPics ||= e.type === 'vt' && isMissing(e); }
+      else mic.push({ left, end, done: isDone(i), noPics: e.type === 'vt' && isMissing(e) });
     });
-    track.append(laneS);
+    const laneP = lane('pres');
+    for (const p of mic) put(laneP, 'pres' + (p.done ? ' done' : ''), p.end - p.left >= 44 ? 'PRES' : '', p.left, p.end - p.left,
+      p.noPics ? 'Presenter mic live (reading over a clip that is missing)' : 'Presenter mic live');
+    track.append(laneP);
 
     // ---- graphics lane: straps under their shot; timed ones at their in-point ----
     if (vis.some(i => els[i].straps.length)) {
