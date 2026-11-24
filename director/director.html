@@ -218,6 +218,7 @@
   .setupwrap { position:fixed; z-index:20; inset:0 0 var(--barh) 0; background:rgba(5,6,8,.6); display:flex; justify-content:center; align-items:flex-start; padding:56px 20px 16px; }
   .setupbox { width:min(980px,100%); max-height:100%; display:flex; flex-direction:column; background:var(--panel); border:1px solid #3a404b; border-radius:8px; box-shadow:0 16px 40px rgba(0,0,0,.6); }
   .setuphead { flex:none; display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  #profileMsg { font-size:12px; max-width:340px; } #profileMsg.ok { color:#9ff0bf; } #profileMsg.bad { color:#ff9aa0; }
   .setuphead h2 { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
   /* not .seg: the timeline-scale code owns every .seg button */
   .stabs { display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; }
@@ -343,6 +344,10 @@
       <h2 id="setupTitle">Setup</h2>
       <div class="stabs" role="tablist" aria-label="Setup sections"><button type="button" role="tab" data-tab="obs">OBS</button><button type="button" role="tab" data-tab="feed">Newsroom</button><button type="button" role="tab" data-tab="ro">Running order</button><button type="button" role="tab" data-tab="log">Log</button><button type="button" role="tab" data-tab="atem">ATEM</button></div>
       <span style="flex:1"></span>
+      <span id="profileMsg" role="status"></span>
+      <button type="button" id="btnExport" title="Save this machine's studio set-up (OBS names, media folder, ATEM) as studio.json">Export studio</button>
+      <button type="button" id="btnImport" title="Load a studio set-up saved with Export studio">Import studio…</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
       <button type="button" class="qbtn" id="btnSetupClose" aria-label="Close setup" title="Close (Esc)">✕</button>
     </div>
     <div class="setupbody">
@@ -505,7 +510,8 @@ const store = {
   set(k, v) { try { localStorage.setItem('moiradir.' + k, v); } catch {} },
 };
 const DEMO_RO = $('roText').value;
-['url','mediaDir','vtAInput','vtAScene','vtBInput','vtBScene','probeInput','l3Input','gfxInput','gfxScene','gfxProbe','probeScene','roText','offAir','zoom','bridgeUrl','captureMs','rigMap'].forEach(id => {
+// Show and operator settings, one key each. The studio's kit settings are in the studio profile (below).
+['roText','offAir','zoom'].forEach(id => {
   const el = $(id); el.value = store.get(id, el.value);
   el.addEventListener('change', () => store.set(id, el.value));
 });
@@ -1012,16 +1018,20 @@ const captureMs = () => Math.max(0, Math.min(1000, +$('captureMs').value || 0));
 /* The rig mapping: { "CAM_1": { "atem": 1, "obs": "ATEM_FEED" }, ... } keyed by the cam
    scene names the running order already uses. → { map } or { error }. */
 let rigCache = { text: null, val: null };
+function rigProblem(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return 'it must be a { … } object';
+  for (const [k, v] of Object.entries(o)) {
+    if (!Number.isInteger(v?.atem) || typeof v?.obs !== 'string' || !v.obs.trim()) return `"${k}" needs "atem": a number and "obs": a scene name`;
+  }
+  return null;
+}
 function rig() {
   const text = $('rigMap').value;
   if (rigCache.text === text) return rigCache.val;
   let val;
   try {
-    const o = JSON.parse(text.trim() || '{}');
-    if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('it must be a { … } object');
-    for (const [k, v] of Object.entries(o)) {
-      if (!Number.isInteger(v?.atem) || typeof v?.obs !== 'string' || !v.obs.trim()) throw new Error(`"${k}" needs "atem": a number and "obs": a scene name`);
-    }
+    const o = JSON.parse(text.trim() || '{}'), bad = rigProblem(o);
+    if (bad) throw new Error(bad);
     val = { map: o };
   } catch (e) { val = { error: e instanceof SyntaxError ? 'it isn\'t valid JSON' : e.message }; }
   rigCache = { text, val };
@@ -1100,16 +1110,119 @@ function renderAtem() {
     : `ATEM · PGM ${atem.name(atem.pgm)}${atem.manual ? ' · MANUAL' : ''}`;
 }
 
-$('atemOn').checked = store.get('atemOn', '0') === '1';
 $('atemOn').addEventListener('change', () => {
-  store.set('atemOn', $('atemOn').checked ? '1' : '0');
+  saveProfile();
   if ($('atemOn').checked) atem.connect(); else atem.close();
   render();
 });
-$('atemPrecut').checked = store.get('atemPrecut', '1') === '1';
-$('atemPrecut').addEventListener('change', () => { store.set('atemPrecut', $('atemPrecut').checked ? '1' : '0'); precutAtem(); });
+$('atemPrecut').addEventListener('change', () => { saveProfile(); precutAtem(); });
 $('bridgeUrl').addEventListener('change', () => { if (atem.on()) { atem.close(); atem.connect(); } });
-$('rigMap').addEventListener('change', () => { const r = rig(); atemMsg(r.error ? 'Rig mapping: ' + r.error : ''); render(); });
+$('rigMap').addEventListener('change', () => {
+  const r = rig();
+  if (r.map) savedCameras = r.map;
+  atemMsg(r.error ? `Rig mapping not saved: ${r.error}. Fix it before using the ATEM.` : '');
+  saveProfile(); render();
+});
+
+/* ---------- the studio profile --------------------------------------------
+   The kit this machine drives (OBS names, the media folder, the ATEM) as one stored object,
+   moiradir.profile, which Export saves as studio.json and Import loads on another machine.
+   At run time Director still reads the setup fields: the profile is how they're stored and
+   moved. Show and operator settings (running order text, off air, zoom, scale, auto-cut, the
+   newsroom) stay separate keys. The keys earlier versions used are left in place, unused. */
+const PROFILE_VERSION = 1;
+const PROFILE = [                       // [path in the profile, setup field, kind]
+  ['obs.url', 'url'],
+  ['obs.vtA.input', 'vtAInput'], ['obs.vtA.scene', 'vtAScene'],
+  ['obs.vtB.input', 'vtBInput'], ['obs.vtB.scene', 'vtBScene'],
+  ['obs.graphic.input', 'gfxInput'], ['obs.graphic.scene', 'gfxScene'],
+  ['obs.strap', 'l3Input'],
+  ['obs.probe.scene', 'probeScene'], ['obs.probe.vtInput', 'probeInput'], ['obs.probe.gfxInput', 'gfxProbe'],
+  ['media.folder', 'mediaDir'],
+  ['atem.on', 'atemOn', 'bool'], ['atem.preset', 'atemPrecut', 'bool'],
+  ['atem.bridge', 'bridgeUrl'], ['atem.captureMs', 'captureMs', 'ms'], ['atem.cameras', 'rigMap', 'rig'],
+];
+const getPath = (o, p) => p.split('.').reduce((x, k) => x?.[k], o);
+const setPath = (o, p, v) => { const ks = p.split('.'), last = ks.pop(); ks.reduce((x, k) => (x[k] ??= {}), o)[last] = v; };
+let savedCameras = null;                // the last valid rig map: kept while the box holds an invalid one
+function profileFromFields() {
+  const p = { version: PROFILE_VERSION };
+  for (const [path, id, kind] of PROFILE) {
+    const el = $(id);
+    setPath(p, path, kind === 'bool' ? el.checked : kind === 'ms' ? captureMs() : kind === 'rig' ? (rig().map ?? savedCameras ?? {}) : el.value.trim());
+  }
+  return p;
+}
+const rigText = o => !Object.keys(o).length ? '{}' : '{\n' + Object.entries(o)
+  .map(([k, v]) => `  ${JSON.stringify(k)}: { "atem": ${v.atem}, "obs": ${JSON.stringify(v.obs)} }`).join(',\n') + '\n}';
+function fieldsFromProfile(p) {
+  for (const [path, id, kind] of PROFILE) {
+    const v = getPath(p, path), el = $(id);
+    if (kind === 'bool') el.checked = v;
+    else if (kind === 'rig') { el.value = rigText(v); savedCameras = v; }
+    else el.value = String(v);
+  }
+}
+/* What's wrong with a profile (an imported file is anyone's), or null. */
+function profileProblem(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return 'it isn\'t a studio profile';
+  if (p.version !== PROFILE_VERSION) return `it\'s version ${p.version ?? '(none)'}; this Director reads version ${PROFILE_VERSION}`;
+  for (const [path, , kind] of PROFILE) {
+    const v = getPath(p, path);
+    const ok = kind === 'bool' ? typeof v === 'boolean' : kind === 'ms' ? Number.isFinite(v) && v >= 0 && v <= 1000
+      : kind === 'rig' ? !rigProblem(v) : typeof v === 'string';
+    if (!ok) return `"${path}" is missing or the wrong type`;
+  }
+  return null;
+}
+function saveProfile() { store.set('profile', JSON.stringify(profileFromFields())); }
+const profileJSON = () => JSON.stringify(profileFromFields(), null, 2) + '\n';
+function profileMsg(text, cls = '') { $('profileMsg').textContent = text; $('profileMsg').className = cls; if (text) log(text, cls || undefined); }
+
+/* Import: check everything first; a bad file changes nothing. */
+function importProfile(text, name = 'the file') {
+  let p;
+  try { p = JSON.parse(text); } catch { profileMsg(`${name} isn't valid JSON. Nothing changed.`, 'bad'); return false; }
+  const bad = profileProblem(p);
+  if (bad) { profileMsg(`${name}: ${bad}. Nothing changed.`, 'bad'); return false; }
+  const wasOn = atem.on(), oldBridge = $('bridgeUrl').value, oldUrl = $('url').value;
+  fieldsFromProfile(p); saveProfile();
+  if (atem.on() && (!wasOn || $('bridgeUrl').value !== oldBridge)) { atem.close(); atem.connect(); }
+  else if (!atem.on() && wasOn) atem.close();
+  atemMsg(''); render();
+  profileMsg(`Studio loaded from ${name}.` + (OBS.ready && $('url').value !== oldUrl ? ' The OBS address changed: Disconnect and Connect to use it.' : ''), 'ok');
+  return true;
+}
+$('btnExport').onclick = () => {
+  saveProfile();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([profileJSON()], { type: 'application/json' }));
+  a.download = 'studio.json';
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  profileMsg('Studio saved as studio.json (in your Downloads).', 'ok');
+};
+$('btnImport').onclick = () => $('importFile').click();
+$('importFile').onchange = async () => {
+  const file = $('importFile').files[0]; $('importFile').value = '';
+  if (file) importProfile(await file.text(), file.name);
+};
+
+// Load: the stored profile, or (first run of this version) the separate keys earlier versions kept.
+{
+  let p = null;
+  try { p = JSON.parse(store.get('profile', 'null')); } catch {}
+  if (p && !profileProblem(p)) fieldsFromProfile(p);
+  else {
+    for (const [, id, kind] of PROFILE) {
+      if (kind === 'bool') $(id).checked = store.get(id, $(id).checked ? '1' : '0') === '1';
+      else $(id).value = store.get(id, $(id).value);
+    }
+    savedCameras = rig().map ?? null;
+    saveProfile();
+  }
+  for (const [, id, kind] of PROFILE) if (kind !== 'bool' && kind !== 'rig') $(id).addEventListener('change', saveProfile);
+}
 
 /* Measure the capture delay: cut the ATEM between black and bars and time how long the
    OBS feed scene takes to show each change, from the ATEM's confirmation. Each look at
@@ -1169,7 +1282,7 @@ async function measureCapture() {
   samples.sort((a, b) => a - b); looks.sort((a, b) => a - b);
   const med = samples[5], worst = samples[9], look = looks[looks.length >> 1];
   const set = Math.ceil((worst + 40) / 10) * 10;          // the worst seen, plus a frame
-  $('captureMs').value = set; store.set('captureMs', String(set));
+  $('captureMs').value = set; saveProfile();
   const text = `Capture delay: median ${Math.round(med)} ms, worst ${Math.round(worst)} ms (each look at OBS takes about ${Math.round(look)} ms, so ± that). Set to ${set} ms: the worst plus a frame.`;
   atemMsg(text); log(text, 'ok');
 }
@@ -2389,6 +2502,7 @@ window.moiraDirector = {
   state: () => ({ title, stories, els, cursor, onAir, live, players }),
   setFrameLuma(fn) { frameLuma = fn; },
   atem: () => ({ up: atem.up, status: atem.status, pgm: atem.pgm, manual: atem.manual, programScene }),
+  profile: () => profileFromFields(), profileJSON: () => profileJSON(), importProfile: (text, name) => importProfile(text, name),
   feedInject(data, room = 'test-room') { feed.room = room; feed.ok = true; const first = !feed.latest; feed.latest = data; feedApply(null, first); },
 };
 
