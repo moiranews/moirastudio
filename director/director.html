@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Moira Director</title>
+<style>
+  /* Gallery layout (from the Claude Design export, docs/moira-gallery.css, local only):
+     transmission bar on top; running order and script in the middle; on air, next and
+     TAKE in a fixed-height bar at the bottom, so TAKE never moves. Only the running
+     order and the script scroll. */
+  :root {
+    --bg:#0f1115; --row:#171a20; --row2:#1c2027; --line:#2a2f38; --fg:#e8eaed; --dim:#8b93a1; --mute:#5d6470;
+    --air:#d1343c; --air-bg:rgba(209,52,60,.2); --next:#22a35a; --next-bg:rgba(34,163,90,.15);
+    --warn:#e0a526; --cam:#4a5261; --vt:#7a5cf0; --gfx:#e08a1e; --panel:#13161b; --btn:#262b34;
+    --barh:198px; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing:border-box; }
+  [hidden] { display:none !important; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  button { font:inherit; color:var(--fg); background:var(--btn); border:1px solid var(--line); border-radius:5px; padding:6px 10px; cursor:pointer; }
+  button:hover { border-color:var(--dim); }
+  button:disabled { cursor:not-allowed; }
+  input, textarea, select { font:inherit; color:var(--fg); background:#0b0d10; border:1px solid var(--line); border-radius:4px; padding:5px 6px; width:100%; }
+  input[type=checkbox] { width:auto; }
+  .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .ell { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lbl { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+  .ok { color:#9ff0bf; } .bad { color:#ff9aa0; } .warn { color:var(--warn); } .dim { color:var(--dim); }
+
+  #app { display:flex; flex-direction:column; height:100vh; }
+
+  /* ---------- transmission bar ---------- */
+  .hdr { position:relative; z-index:21; flex:none; display:flex; align-items:center; gap:18px; min-height:56px; padding:6px 20px; background:#1a1d23; border-bottom:2px solid var(--line); min-width:0; }
+  .hdr.live { background:var(--air); border-bottom-color:#8f1f25; }
+  .hdr .state { flex:none; font-weight:800; font-size:12px; letter-spacing:.1em; padding:4px 9px; border-radius:3px; background:var(--btn); white-space:nowrap; }
+  .hdr.live .state { background:#fff; color:#8f1f25; }
+  .hdr .title { flex:0 1 auto; font-weight:700; font-size:17px; min-width:0; }
+  .chip { flex:none; font-size:11px; font-weight:700; letter-spacing:.06em; padding:3px 8px; border-radius:3px; white-space:nowrap; background:rgba(0,0,0,.3); color:var(--fg); display:inline-flex; align-items:center; gap:6px; }
+  .chip .dot { width:8px; height:8px; border-radius:50%; background:var(--next); }
+  .chip.bad { background:#2a0c0f; color:#ff9aa0; outline:1px solid #ff7b82; }
+  .chip.bad .dot { background:var(--air); }
+  .chip.warn { background:var(--warn); color:#1d1300; }
+  .hdr .spacer { flex:1 1 10px; }
+  .hcells { flex:none; display:flex; gap:24px; align-items:flex-end; }
+  .hcell { display:flex; flex-direction:column; align-items:flex-end; line-height:1.1; }
+  .hcell small { font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:.85; white-space:nowrap; }
+  .hcell b { font:600 17px var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .hcell.clock b { font-size:24px; }
+  #offAir { width:96px; padding:0 4px; font:600 17px var(--mono); background:transparent; border:1px solid transparent; color:inherit; text-align:right; }
+  #offAir:hover, #offAir:focus { border-color:rgba(255,255,255,.4); }
+  .ou { padding:0 6px; border-radius:3px; }
+  .ou.over { color:#ff9aa0; } .hdr.live .ou.over { background:#fff; color:#8f1f25; }
+  .ou.under { color:#9ff0bf; } .hdr.live .ou.under { background:#0d3b22; color:#9ff0bf; }
+
+  /* ---------- middle: running order + script ---------- */
+  .mid { flex:1 1 auto; min-height:0; display:flex; }
+  .ro { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; }
+  .rohead { position:relative; flex:none; display:flex; align-items:center; gap:12px; padding:8px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .rohead h2, .aside h2 { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+  .rohead .count, .rohead .keys { color:var(--dim); font-size:12px; }
+  .rohead .keys { font-size:11px; }
+  .seg, .tabs { display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+  .seg button, .tabs button { border:none; border-radius:0; padding:3px 9px; font-size:11px; background:transparent; color:var(--dim); }
+  .seg button.on { background:#2f3540; color:var(--fg); }
+  .qbtn { width:28px; height:28px; padding:0; border-radius:50%; font-weight:800; }
+  .qbtn.on { background:var(--fg); color:var(--bg); }
+  .keypop { position:absolute; z-index:8; top:calc(100% - 4px); right:20px; width:440px; max-width:calc(100vw - 20px); background:#1a1d23; border:1px solid #3a404b; border-radius:6px; padding:12px 14px; box-shadow:0 12px 32px rgba(0,0,0,.5); }
+  .keypop h3 { margin:0 0 8px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); }
+  .keyrow { display:grid; grid-template-columns:86px minmax(0,1fr); gap:4px 10px; align-items:start; padding:5px 0; border-top:1px solid var(--line); }
+  .keyrow p { margin:0; font-size:12px; }
+
+  .roscroll { flex:1 1 auto; min-height:0; overflow:auto; }
+  .romin { min-width:960px; }
+  .colhead, .story { display:grid; grid-template-columns:34px 84px minmax(140px,1.1fr) minmax(240px,3fr) 52px 52px 74px 58px 112px; gap:10px; align-items:center; padding:0 20px; }
+  .colhead { position:sticky; top:0; z-index:3; height:30px; background:var(--bg); font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--dim); border-bottom:1px solid var(--line); }
+  .r { text-align:right; }
+  .story { min-height:66px; padding-top:8px; padding-bottom:8px; background:var(--row); border-bottom:1px solid var(--line); cursor:pointer; }
+  .story:nth-child(even) { background:var(--row2); }
+  .story.air  { background:var(--air-bg); box-shadow:inset 5px 0 0 var(--air); }
+  .story.next { background:var(--next-bg); box-shadow:inset 5px 0 0 var(--next); }
+  .story.done { opacity:.45; }
+  .story .num { color:var(--dim); font:15px var(--mono); }
+  .story.air .num, .story.next .num { color:var(--fg); }
+  .fmt { font:700 11px var(--mono); padding:3px 6px; border-radius:3px; text-align:center; background:var(--btn); border:1px solid #3a404b; white-space:nowrap; justify-self:start; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+  .fmt:empty { visibility:hidden; }   /* keep its grid column: display:none shifts every later cell left */
+  .slugcell { min-width:0; }
+  .story .slug { font-weight:650; font-size:16px; }
+  .flagline { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; margin-top:4px; }
+  .flagline:empty { display:none; }
+  .flag { font-size:10px; font-weight:800; letter-spacing:.05em; color:#1d1300; background:var(--warn); border-radius:3px; padding:1px 5px; white-space:nowrap; }
+  .flag.removed { background:#ff7b82; }
+  .flag.hint { background:transparent; color:var(--warn); border:1px solid var(--warn); padding:0 4px; }
+  .flagline button { font-size:11px; padding:1px 9px; border-color:var(--warn); color:var(--warn); background:transparent; }
+  .t { font:13px var(--mono); font-variant-numeric:tabular-nums; text-align:right; color:var(--dim); white-space:nowrap; }
+  .story.air .t, .story.next .t { color:var(--fg); }
+  .t.over, .story.air .t.over { color:#ff9aa0; }
+  .st { font-size:11px; font-weight:800; letter-spacing:.05em; padding:3px 7px; border-radius:3px; justify-self:start; white-space:nowrap; }
+  .st.air { background:var(--air); color:#fff; } .st.next { background:var(--next); color:#04140a; }
+  .st.manual { background:var(--warn); color:#1d1300; }
+  .st.bad { background:#ff7b82; color:#2a0306; } .st.ok { color:#9ff0bf; padding-left:0; } .st.dim { color:var(--dim); padding-left:0; }
+
+  /* track: vision lane, sound lane, strap lane; scrolls sideways */
+  .track { position:relative; display:flex; flex-direction:column; gap:4px; min-width:0; overflow-x:auto; overflow-y:hidden; padding-bottom:2px; scrollbar-width:thin; scrollbar-color:#3a404b transparent; }
+  .track::-webkit-scrollbar { height:6px; } .track::-webkit-scrollbar-thumb { background:#3a404b; border-radius:3px; }
+  .lane { display:flex; gap:3px; flex:none; }
+  .el { flex:none; height:32px; line-height:28px; border-radius:4px; padding:0 9px; font-size:13px; font-weight:500; border:2px solid transparent; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+  .el.cam { background:var(--cam); }
+  .el.vt { background:var(--vt); }
+  .el.gfx { background:var(--gfx); color:#1d1300; font-weight:600; }
+  .el.unknown { background:repeating-linear-gradient(45deg,#3a3168 0 6px,#2d2652 6px 12px); }
+  .el.missing { background:transparent; border:2px dashed var(--air); color:#ff9aa0; }
+  .el.cueing { opacity:.65; }
+  .el.cursor { border-color:var(--next); box-shadow:0 0 0 1px var(--next); }
+  .el.onair { border-color:#fff; box-shadow:0 0 0 2px var(--air); font-weight:650; }
+  .el.done { opacity:.5; }
+  .el.onair.manual { border:2px dashed var(--warn); box-shadow:none; }   /* the ATEM was cut away from it on the panel */
+  /* sound lane: who is heard under each shot (shown only; the director doesn't drive audio) */
+  .snd { flex:none; height:16px; line-height:14px; border-radius:3px; padding:0 6px; font-size:10px; font-weight:700; letter-spacing:.05em; border:1px solid transparent; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .snd.pres { background:var(--cam); }
+  .snd.sot  { background:var(--vt); }
+  .snd.off  { background:repeating-linear-gradient(135deg, rgba(122,92,240,.35) 0 5px, rgba(122,92,240,.12) 5px 10px); border-color:rgba(122,92,240,.7); color:#d6ccff; }
+  .snd.dead { background:transparent; border:1px dashed var(--air); color:#ff9aa0; }
+  .snd.short { box-shadow:inset -3px 0 0 var(--warn); }
+  .snd.done { opacity:.5; }
+  .keyrow .snds { display:flex; gap:3px; margin-top:4px; }
+  .lane.g { position:relative; height:20px; }
+  .gs { position:absolute; top:0; height:20px; line-height:16px; border-radius:3px; padding:0 7px; font-size:11px; font-weight:650; background:rgba(224,138,30,.22); color:#ffd9a6; border:2px solid transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
+  .gs.timed { background:rgba(224,138,30,.45); color:#ffe9cc; }
+  .gs.on { background:var(--gfx); color:#1d1300; border-color:#fff; }
+  .gs.done { opacity:.45; }
+  .endline { display:flex; align-items:center; gap:10px; padding:10px 20px; color:var(--dim); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+  .endline .rule { flex:1; height:1px; background:#3a404b; }
+
+  /* ---------- script + ad-libs ---------- */
+  .aside { flex:0 0 340px; min-width:0; display:flex; flex-direction:column; background:#121419; border-left:1px solid var(--line); overflow-y:auto; }
+  .aside .head { flex:none; display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--line); }
+  .tabs { margin-left:auto; }
+  .tabs button.on.air { background:#8f1f25; color:#fff; } .tabs button.on.next { background:#14693a; color:#fff; }
+  .script { position:relative; flex:1 1 auto; min-height:140px; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:9px; font-size:14px; line-height:1.55; border-bottom:1px solid var(--line); }
+  .script .sh { font-weight:700; display:flex; gap:8px; align-items:baseline; min-width:0; }
+  .script .sh .ell { min-width:0; }
+  .script .sh .mono { flex:none; font-size:11px; color:var(--dim); font-weight:500; white-space:nowrap; }
+  .script .blk { border-left:3px solid transparent; padding-left:8px; margin-left:-11px; }
+  .script .blk.now { border-left-color:var(--air); }
+  .script .blk.nextshot { border-left-color:var(--next); }
+  .script .blk.over p { color:#d6ccff; }   /* read over the pictures of an OFF VT */
+  .script p { margin:0; color:#c9ced6; }
+  .script .dir { color:var(--dim); font-style:italic; font-size:13px; }
+  .tag { display:inline-block; font:700 11px var(--mono); padding:1px 6px; border-radius:3px; color:#fff; }
+  .tag.cam { background:var(--cam); } .tag.strap { background:rgba(224,138,30,.25); color:#ffd9a6; }
+  .clipbox { background:rgba(122,92,240,.18); border:1px solid var(--vt); border-radius:4px; padding:7px 10px; font-size:12px; line-height:1.4; }
+  .clipbox.nofile { border-style:dashed; border-color:var(--air); }
+  .ow { color:#ffe3a3; text-decoration:underline; text-decoration-color:var(--warn); text-underline-offset:3px; }
+  .empty { color:var(--dim); font-size:13px; padding:18px 8px; text-align:center; border:1px dashed var(--line); border-radius:5px; }
+  .adlibs { flex:none; padding:12px 16px; display:flex; flex-direction:column; gap:8px; }
+  .adlibs .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .adlibs .grid button { min-height:42px; background:#20252d; }
+  .adlibs label { display:flex; gap:8px; align-items:center; font-size:12px; color:var(--dim); }
+  #players { display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:11px; }
+  .pl { border:1px solid var(--line); border-radius:4px; padding:5px; min-height:40px; overflow-wrap:anywhere; }
+  .pl b { display:block; font-size:10px; color:var(--mute); letter-spacing:.06em; }
+  .pl.air { border-color:var(--air); } .pl.ready { border-color:var(--next); }
+
+  /* ---------- bottom bar: fixed height, TAKE never moves ---------- */
+  /* The bar's edge matches the transmission bar's on top: a 2px rule, lighter than the row lines,
+     with a shadow so the running order reads as passing under it. */
+  .bar { position:relative; z-index:5; box-shadow:0 -8px 18px rgba(0,0,0,.55); flex:none; height:var(--barh); display:grid; grid-template-columns:minmax(0,1fr) 240px; gap:12px; padding:12px 20px; background:#1a1d23; border-top:2px solid #3d4452; }
+  .cue { position:relative; height:172px; display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:12px; min-width:0; }
+  .panel { border-radius:6px; padding:10px 14px; min-width:0; overflow:hidden; border:1px solid var(--line); }
+  .p-air { display:grid; grid-template-columns:minmax(0,1fr) 150px; gap:14px; background:var(--air-bg); border-color:var(--air); }
+  .p-air.idle { background:#15181d; border-color:var(--line); }
+  .p-air .txt { min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .tagline { display:flex; gap:8px; align-items:center; font-size:11px; color:#c9ced6; min-width:0; height:16px; }
+  .tagline b { flex:none; font-size:10px; letter-spacing:.1em; }
+  .p-air .tagline b { color:#ffb3b8; } .p-air.idle .tagline b { color:var(--dim); }
+  .p-next .tagline b { color:#9ff0bf; } .p-next.end .tagline b { color:var(--dim); }
+  .big { font-size:19px; font-weight:700; height:26px; line-height:26px; }
+  /* two lines, anchored to the bottom: long out words lose their start, never their last words */
+  .outw { font-size:15px; font-style:italic; color:#ffe3a3; line-height:1.3; height:2.6em; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; }
+  .p-air.idle .outw { color:var(--dim); font-style:normal; }
+  .cdwrap { display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:5px; min-width:0; }
+  .cdwrap .lbl { color:#c9ced6; max-width:100%; }
+  .cd { font:700 50px/1 var(--mono); font-variant-numeric:tabular-nums; color:var(--mute); white-space:nowrap; }
+  .cd.run { color:var(--fg); } .cd.ten { color:var(--warn); }
+  .cd.five { color:var(--air); animation:blink .5s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.35; } }
+  .cdbar { width:100%; height:6px; background:rgba(0,0,0,.35); border-radius:3px; overflow:hidden; }
+  .cdbar i { display:block; height:100%; width:0; background:var(--air); }
+  .cdwrap .meta { font-size:11px; color:#c9ced6; height:15px; max-width:100%; }
+  .recue { font-size:12px; height:30px; padding:0 10px; width:100%; background:rgba(0,0,0,.3); border-color:#ff7b82; color:#ffe1e3; }
+  .recue.off { visibility:hidden; }
+  .p-next { display:flex; flex-direction:column; gap:3px; background:var(--next-bg); border-color:var(--next); }
+  .p-next.end { background:#15181d; border-color:var(--line); }
+  .p-next .l3, .p-next .l4 { font-size:12px; color:#c9ced6; height:17px; }
+  .skip { display:none; position:absolute; inset:0; z-index:3; flex-direction:column; justify-content:center; gap:12px; padding:14px 18px; border:2px solid var(--air); border-radius:6px; background:linear-gradient(rgba(209,52,60,.22),rgba(209,52,60,.22)),#13161b; }
+  .skip.show { display:flex; }
+  .skip p { margin:0; font-size:17px; font-weight:700; color:#fff; }
+  .skip p span { display:block; font-size:13px; font-weight:500; color:#ffc7cb; margin-top:2px; }
+  .skip .btns { display:flex; gap:10px; }
+  .skip button { flex:1; height:44px; font-weight:700; }
+  .skip button.go { background:var(--next); border-color:var(--next); color:#04140a; }
+  .takecol { display:flex; flex-direction:column; gap:8px; height:172px; min-width:0; }
+  #btnTake { height:76px; flex:none; background:var(--air); border-color:#ff6b73; color:#fff; font-weight:800; font-size:24px; letter-spacing:.1em; border-radius:6px; }
+  #btnTake:hover { filter:brightness(1.1); }
+  #btnTake:disabled { background:#3a2226; border-color:#5a2f34; color:#a77; filter:none; }
+  #btnStrap { height:40px; flex:none; text-align:left; background:#3a2a10; border-color:var(--gfx); color:#ffd9a6; font-weight:700; }
+  #btnStrap.on { background:var(--gfx); color:#1d1300; }
+  #btnStrap.none { opacity:.5; }
+  .navbtns { display:flex; gap:8px; height:40px; } .navbtns button { flex:1; }
+
+  /* ---------- setup (the cog): over the header and running order, never over the bar ---------- */
+  .cog { flex:none; width:34px; height:34px; padding:0; display:grid; place-items:center; border-radius:50%; background:rgba(0,0,0,.3); color:var(--fg); }
+  .cog.on { background:var(--fg); color:var(--bg); }
+  .setupwrap { position:fixed; z-index:20; inset:0 0 var(--barh) 0; background:rgba(5,6,8,.6); display:flex; justify-content:center; align-items:flex-start; padding:56px 20px 16px; }
+  .setupbox { width:min(980px,100%); max-height:100%; display:flex; flex-direction:column; background:var(--panel); border:1px solid #3a404b; border-radius:8px; box-shadow:0 16px 40px rgba(0,0,0,.6); }
+  .setuphead { flex:none; display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .setuphead h2 { margin:0; font-size:12px; letter-spacing:.08em; text-transform:uppercase; }
+  /* not .seg: the timeline-scale code owns every .seg button */
+  .stabs { display:inline-flex; border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+  .stabs button { border:none; border-radius:0; background:transparent; color:var(--dim); padding:5px 12px; font-size:12px; }
+  .stabs button.on { background:var(--fg); color:var(--bg); font-weight:650; }
+  .setupbody { flex:1 1 auto; min-height:0; overflow:auto; padding-top:12px; }
+  .drawer { padding:0 20px 16px; display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .drawer label { display:block; font-size:11px; color:var(--dim); margin:4px 0 2px; }
+  textarea { font:12px/1.4 var(--mono); min-height:260px; }
+  #log { font:11px/1.35 var(--mono); max-height:220px; overflow:auto; white-space:pre-wrap; word-break:break-all; background:#0b0d10; padding:6px; border-radius:4px; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; font-size:12px; } .kv span:nth-child(odd) { color:var(--dim); }
+
+  /* ---------- narrow (second screen, docked panel): the page scrolls, the bar sticks to the bottom ---------- */
+  @media (max-width: 640px) {
+    #app { height:auto; min-height:100vh; }
+    .hdr { flex-wrap:wrap; gap:8px 14px; padding:8px 10px; }
+    .hdr .h-opt { display:none; }
+    .hcell b, #offAir { font-size:15px; } .hcell.clock b { font-size:20px; }
+    .mid { display:block; }
+    .rohead { padding:8px 10px; } .rohead .keys { display:none; }
+    .roscroll { overflow:visible; }
+    .romin { min-width:0; }
+    .colhead { position:static; }
+    .colhead, .story { grid-template-columns:20px 58px minmax(72px,1fr) minmax(0,1.5fr) 60px; gap:6px; padding-left:8px; padding-right:8px; }
+    .c-est, .c-act, .c-back, .c-status { display:none; }
+    .story .slug { font-size:14px; }
+    .aside { border-left:none; border-top:1px solid var(--line); overflow:visible; }
+    .script { max-height:50vh; }
+    :root { --barh:238px; }
+    .setupwrap { padding:10px; } .setuphead { padding:8px 10px; }
+    .bar { position:sticky; bottom:0; z-index:6; grid-template-columns:minmax(0,1fr); grid-template-rows:140px 60px; padding:12px 10px; gap:12px; }
+    .cue { height:140px; grid-template-columns:minmax(0,1fr); grid-template-rows:84px 48px; gap:8px; }
+    .p-air { grid-template-columns:minmax(0,1fr) 96px; padding:8px 10px; }
+    .p-air .big { font-size:15px; height:20px; line-height:20px; } .p-air .txt > .lbl { display:none; } .p-air .outw { height:1.3em; font-size:13px; }
+    .p-next { gap:2px; } .p-next .tagline { height:14px; } .p-next .big { height:20px; line-height:20px; }
+    .cd { font-size:32px; } .cdwrap .meta, .cdwrap .recue { display:none; }
+    .p-next { padding:6px 10px; } .p-next .big { font-size:14px; } .p-next .l3, .p-next .l4 { display:none; }
+    .takecol { flex-direction:row; height:60px; } #btnTake { flex:1.6 1 0; height:60px; font-size:20px; }
+    #btnStrap { flex:1 1 0; height:60px; font-size:12px; } .navbtns { flex:0 0 auto; height:60px; } .navbtns button { width:48px; padding:0; }
+    .drawer { padding:0 10px 12px; }
+  }
+</style>
+<!-- Studio feed: config.js (project URL + publishable key) and supabase-js, used only by the
+     feed section. Async, so a slow or absent CDN never stops the director loading; without
+     them the text box and OBS still work. -->
+<script src="../config.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+        integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous" onload="window.dispatchEvent(new Event('moira-supabase-ready'))"></script>
+</head>
+<body>
+<div id="app">
+
+<header id="hdr" class="hdr">
+  <span class="state" id="hdrState">STANDBY</span>
+  <span class="title ell" id="hdrTitle">Test bulletin</span>
+  <span id="feed" class="chip" hidden></span>
+  <span id="obsChip" class="chip bad" title="OBS connection"><span class="dot"></span><span id="obsText">OBS NOT CONNECTED</span></span>
+  <span id="atemChip" class="chip bad" title="ATEM through Bridge" hidden><span class="dot"></span><span id="atemText"></span></span>
+  <span class="spacer"></span>
+  <div class="hcells">
+    <div class="hcell clock"><small>Time</small><b id="clock">--:--:--</b></div>
+    <div class="hcell"><small>Off air</small><input id="offAir" value="13:05:00" aria-label="Off-air time" title="Off-air time: click to change"></div>
+    <div class="hcell h-opt"><small>Prog dur</small><b id="trt">0:00</b></div>
+    <div class="hcell h-opt"><small>Left to run</small><b id="left">—</b></div>
+    <div class="hcell"><small>Over / under</small><b id="overUnder" class="ou">—</b></div>
+  </div>
+  <button type="button" class="cog" id="btnSetup" aria-label="Setup" aria-expanded="false" title="Setup: OBS, ATEM, newsroom, running order, log"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.3 2.7a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1c.5.4 1.1.8 1.7 1l.3 2.7h4l.3-2.7c.6-.2 1.2-.6 1.7-1l2.5 1 2-3.4zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z" transform="translate(-1 0)"/></svg></button>
+</header>
+
+<div class="mid">
+  <section class="ro">
+    <div class="rohead">
+      <h2>Running order</h2><span class="count" id="roCount"></span>
+      <span style="flex:1"></span>
+      <span class="keys">Space/F12 TAKE · G strap · ↑↓ cue</span>
+      <div class="seg" role="group" aria-label="Timeline scale"><button type="button" data-m="time">True time</button><button type="button" data-m="fit">Fit to row</button></div>
+      <button type="button" class="qbtn" id="btnKey" aria-label="Format key" aria-expanded="false">?</button>
+      <div class="keypop" id="keyPop" role="dialog" aria-label="Format key" hidden>
+        <h3>Format key · the desk's story formats</h3>
+        <div class="keyrow"><span class="fmt">READ</span><div><p>Presenter in vision reads to camera.</p><div class="snds"><span class="snd pres">PRES</span></div></div></div>
+        <div class="keyrow"><span class="fmt">WRAP</span><div><p>Presenter intro, then a clip with its own sound.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd sot">VT SOT</span></div></div></div>
+        <div class="keyrow"><span class="fmt">CLIP</span><div><p>A single clip played with its own sound.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd sot">VT SOT</span></div></div></div>
+        <div class="keyrow"><span class="fmt">OOV</span><div><p>Out of vision: the presenter reads over pictures.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd off">PRES · VT OFF</span></div></div></div>
+        <div class="keyrow"><span class="fmt">ULAY</span><div><p>Underlay: pictures under the presenter's read, natural sound low.</p><div class="snds"><span class="snd pres">PRES</span><span class="snd off">PRES · VT OFF</span></div></div></div>
+        <div class="keyrow"><span class="fmt">OOV/CLIP</span><div><p>Presenter over pictures, then the clip's sound comes up.</p><div class="snds"><span class="snd off">PRES · VT OFF</span><span class="snd sot">▲ VT SOT</span></div></div></div>
+        <div class="keyrow"><span class="fmt">ULAY/CLIP</span><div><p>Underlay into a clip with its own sound.</p><div class="snds"><span class="snd off">PRES · VT OFF</span><span class="snd sot">▲ VT SOT</span></div></div></div>
+        <div class="keyrow"><span class="fmt">LIVE</span><p>A live contributor or link. Shown as cameras for now.</p></div>
+        <div class="keyrow"><span class="lbl">Sound</span><p>From each clip's SOT or OFF on the desk; OOV and ULAY clips are OFF unless marked SOT. An amber edge: the words run past the pictures.</p></div>
+        <div class="keyrow"><span class="lbl">Columns</span><p>Est: planned length · Act: actual · Front: planned hit time · Back: time left to off air from the start of that story</p></div>
+      </div>
+    </div>
+    <div class="roscroll" id="roScroll">
+      <div class="romin">
+        <div class="colhead"><span>Pg</span><span>Format</span><span>Slug</span><span>Vision · straps</span><span class="r c-est">Est</span><span class="r c-act">Act</span><span class="r">Front</span><span class="r c-back">Back</span><span class="c-status">Status</span></div>
+        <div id="stories"></div>
+        <div class="endline"><span class="rule"></span><span id="endText">End of programme</span><span class="rule"></span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <aside class="aside">
+    <div class="head"><h2>Script</h2><div class="tabs" role="group" aria-label="Script shown"><button type="button" id="tabAir" class="air on">On air</button><button type="button" id="tabNext" class="next">Next</button></div></div>
+    <div class="script" id="script"></div>
+    <div class="adlibs">
+      <span class="lbl">Ad-libs</span>
+      <div class="grid"><button type="button" id="adBack">Back to presenter</button><button type="button" id="adClear">Clear strap</button></div>
+      <label><input type="checkbox" id="autoCut"> Auto-cut to last camera when a VT ends</label>
+      <span class="lbl" style="margin-top:4px">VT players</span>
+      <div id="players">
+        <div class="pl" id="pA"><b>VT A</b><span>empty</span></div>
+        <div class="pl" id="pB"><b>VT B</b><span>empty</span></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Setup: everything that isn't the show, behind the cog. It covers the header and the running
+     order but never the transmission bar, so TAKE and the on-air panel stay in sight and in reach. -->
+<div class="setupwrap" id="setupWrap" hidden>
+  <div class="setupbox" role="dialog" aria-modal="false" aria-labelledby="setupTitle">
+    <div class="setuphead">
+      <h2 id="setupTitle">Setup</h2>
+      <div class="stabs" role="tablist" aria-label="Setup sections"><button type="button" role="tab" data-tab="obs">OBS</button><button type="button" role="tab" data-tab="feed">Newsroom</button><button type="button" role="tab" data-tab="ro">Running order</button><button type="button" role="tab" data-tab="log">Log</button><button type="button" role="tab" data-tab="atem">ATEM</button></div>
+      <span style="flex:1"></span>
+      <button type="button" class="qbtn" id="btnSetupClose" aria-label="Close setup" title="Close (Esc)">✕</button>
+    </div>
+    <div class="setupbody">
+<section class="stab" id="dSetup" data-tab="obs" role="tabpanel" aria-label="OBS" hidden>
+  <div class="drawer">
+    <div>
+      <label>obs-websocket URL</label><input id="url" value="ws://127.0.0.1:4455">
+      <label>Password</label><input id="pass" type="password" autocomplete="off">
+      <div style="display:flex;gap:6px;margin-top:8px"><button id="btnConnect">Connect</button><button id="btnDisconnect">Disconnect</button></div>
+      <label>Media folder on THIS machine</label><input id="mediaDir" placeholder="/Users/you/Moira/media  or  C:\Moira\media">
+    </div>
+    <div>
+      <label>VT A input / scene</label><input id="vtAInput" value="MOIRA_VT_A"><input id="vtAScene" value="VT_A" style="margin-top:4px">
+      <label>VT B input / scene</label><input id="vtBInput" value="MOIRA_VT_B"><input id="vtBScene" value="VT_B" style="margin-top:4px">
+      <label>Probe input / lower-third input</label><input id="probeInput" value="MOIRA_PROBE"><input id="l3Input" value="MOIRA_L3" style="margin-top:4px">
+      <label>GFX input / scene</label><input id="gfxInput" value="MOIRA_GFX"><input id="gfxScene" value="GFX" style="margin-top:4px">
+      <label>GFX probe input / probe scene</label><input id="gfxProbe" value="MOIRA_GFX_PROBE"><input id="probeScene" value="_PROBE" style="margin-top:4px">
+      <label>Timeline zoom (pixels per second)</label><input id="zoom" type="number" min="2" max="40" step="1" value="8">
+    </div>
+  </div>
+</section>
+
+<section class="stab" id="dAtem" data-tab="atem" role="tabpanel" aria-label="ATEM" hidden>
+  <div class="drawer">
+    <div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="atemOn" style="width:auto"> Drive the ATEM through Bridge (<code>npm run bridge</code>)</label>
+      <label style="display:flex;gap:8px;align-items:center" title="While a VT or graphic is on air the ATEM's programme isn't, so the director cuts it to the next camera early and TAKE back to the camera is just the OBS switch. Turn off if anything else uses the ATEM's own outputs (its HDMI out, recording or stream): they'd show the next camera early."><input type="checkbox" id="atemPrecut" checked style="width:auto"> Preset the ATEM to the next camera while OBS isn't showing it</label>
+      <label>Bridge URL</label><input id="bridgeUrl" value="ws://127.0.0.1:4456">
+      <label>Capture delay, ms (after the ATEM confirms a cut, before OBS switches to the feed)</label><input id="captureMs" type="number" min="0" max="1000" step="10" value="120">
+      <div style="display:flex;gap:6px;margin-top:8px"><button id="btnMeasure" title="Cuts the ATEM between black and bars ten times and times how long OBS takes to show each change. Not during a show.">Measure capture delay</button></div>
+      <div id="atemMsg" class="dim" style="margin-top:6px;font-size:12px"></div>
+    </div>
+    <div>
+      <label>Rig: camera scene in the running order → ATEM input, and the OBS scene that shows the ATEM</label>
+      <textarea id="rigMap" rows="7" spellcheck="false" style="font-family:var(--mono);font-size:12px">{
+  "CAM_1": { "atem": 1, "obs": "ATEM_FEED" },
+  "CAM_2": { "atem": 2, "obs": "ATEM_FEED" },
+  "CAM_3": { "atem": 3, "obs": "ATEM_FEED" },
+  "CAM_4": { "atem": 4, "obs": "ATEM_FEED" }
+}</textarea>
+      <div class="dim" style="font-size:12px;margin-top:4px">Cameras not listed here cut OBS straight to their own scene, as without the ATEM.</div>
+    </div>
+  </div>
+</section>
+
+<section class="stab" id="dFeed" data-tab="feed" role="tabpanel" aria-label="Newsroom" hidden>
+  <div class="drawer">
+    <div>
+      <label>Join code (once per machine)</label><input id="feedCode" autocomplete="off" placeholder="ABCD-EFGH">
+      <div style="display:flex;gap:6px;margin-top:6px"><button id="btnFeedJoin">Join</button></div>
+    </div>
+    <div>
+      <label>Newsroom</label><select id="feedRoom"></select>
+      <div style="display:flex;gap:6px;margin-top:6px"><button id="btnFeedFollow">Follow</button><button id="btnFeedStop">Stop following</button></div>
+      <div id="feedMsg" class="dim" style="margin-top:6px;font-size:12px"></div>
+    </div>
+  </div>
+</section>
+
+<section class="stab" id="dRo" data-tab="ro" role="tabpanel" aria-label="Running order" hidden>
+  <div class="drawer" style="grid-template-columns:1fr">
+    <div>
+      <label><code>title …</code> · <code># Slug @0:20</code> (presenter read time) · <code>cam CAM_1</code> · <code>vt file.mp4</code> · <code>gfx file.png</code> (full-frame graphic) · <code>strap Name | Title</code> (manual, G key) · <code>strap @2-8 Name | Title</code> (auto: in at 2s, out at 8s) · <code>&gt; out words</code><br>Straps and out words belong to the camera or VT above them. Straps clear when you cut away.</label>
+      <textarea id="roText">title Lunchtime bulletin
+# Headlines @0:15
+cam CAM_1
+strap @1-6 Andy Dickinson | Presenter
+> ...those are the headlines.
+# Floods @0:16
+cam CAM_1
+gfx 0423-FLOODS-MAP.png
+> ...the Environment Agency says more rain is on the way.
+vt 0423-FLOODS.mp4
+# Council @0:08
+cam CAM_2
+> ...a vote is expected tonight.
+vt 0423-COUNCIL.mp4
+# Council reaction @0:40
+cam CAM_1
+strap Councillor Jane Smith | Leader, Manchester City Council
+cam CAM_2
+strap Ali Khan | Resident, Ancoats
+cam CAM_1
+> ...we'll keep following that. Now, the floods again.
+vt 0423-FLOODS.mp4
+cam CAM_2
+> ...and that's the latest. Now the weather.
+# Weather @0:05
+cam CAM_1
+vt 0423-MISSING.mp4
+# Close @0:10
+cam CAM_1
+> ...goodbye.</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button id="btnRoLoad">Load running order</button><button id="btnCheck">Check all VTs</button><button id="btnDemo">Reset to demo</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="stab" id="dLog" data-tab="log" role="tabpanel" aria-label="Log" hidden>
+  <div class="drawer">
+    <div><div style="display:flex;gap:6px;margin-bottom:6px"><button id="btnClearLog">Clear log</button><label style="display:flex;gap:4px;align-items:center;margin:0"><input type="checkbox" id="logEvents"> OBS events</label></div><div id="log"></div></div>
+    <div><div class="kv" id="env"></div><button id="btnCopyEnv" style="margin-top:6px">Copy report</button></div>
+  </div>
+</section>
+    </div>
+  </div>
+</div>
+
+<section class="bar" aria-label="Transmission controls">
+  <div class="cue">
+    <div class="panel p-air idle" id="pAir">
+      <div class="txt">
+        <div class="tagline"><b id="airTag">STANDBY</b><span class="ell" id="airWhere">Nothing on air</span></div>
+        <div class="big ell" id="airWhat">Black / pre-show</div>
+        <span class="lbl" style="margin-top:4px;color:#c9ced6">Out words</span>
+        <div class="outw" id="outText"><span id="outWords">—</span></div>
+      </div>
+      <div class="cdwrap">
+        <span class="lbl ell" id="cdLabel">No VT on air</span>
+        <b class="cd" id="cd">--:--</b>
+        <div class="cdbar"><i id="cdFill"></i></div>
+        <span class="meta ell mono" id="cdMeta"></span>
+        <button type="button" class="recue off" id="btnRecue">Re-cue to start</button>
+      </div>
+    </div>
+    <div class="panel p-next" id="pNext">
+      <div class="tagline"><b>NEXT</b><span class="ell" id="nextWhere"></span></div>
+      <div class="big ell" id="nextWhat">—</div>
+      <div class="l3 ell" id="nextState"></div>
+      <div class="l4 ell" id="nextHit"></div>
+    </div>
+    <div class="skip" id="skip"><p id="skipText"></p><div class="btns"><button type="button" class="go" id="btnSkip">Skip to next</button><button type="button" id="btnStay">Stay</button></div></div>
+  </div>
+  <div class="takecol">
+    <button type="button" id="btnTake">TAKE</button>
+    <button type="button" id="btnStrap" class="ell none">No strap on this shot</button>
+    <div class="navbtns"><button type="button" id="btnPrev">▲ Prev</button><button type="button" id="btnNext">Next ▼</button></div>
+  </div>
+</section>
+
+</div>
+
+<script>
+'use strict';
+/* =========================================================================
+   Moira Director v5
+   Model: stories → vision elements (cam | vt). TAKE only ever cuts vision.
+   Each vision element can carry:
+     straps  — graphics on their own lane: timed (auto in/out) or manual (G)
+     outCue  — the presenter's out words, shown above TAKE while it's on air
+   Timing: studio time is counted per STORY (not per camera angle), plus
+   real VT durations from OBS.
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- persistence ------------------------------------------------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('moiradir.' + k); return v === null ? d : v; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('moiradir.' + k, v); } catch {} },
+};
+const DEMO_RO = $('roText').value;
+['url','mediaDir','vtAInput','vtAScene','vtBInput','vtBScene','probeInput','l3Input','gfxInput','gfxScene','gfxProbe','probeScene','roText','offAir','zoom','bridgeUrl','captureMs','rigMap'].forEach(id => {
+  const el = $(id); el.value = store.get(id, el.value);
+  el.addEventListener('change', () => store.set(id, el.value));
+});
+$('autoCut').checked = store.get('autoCut', '0') === '1';
+$('autoCut').addEventListener('change', () => store.set('autoCut', $('autoCut').checked ? '1' : '0'));
+$('zoom').addEventListener('input', () => render());
+
+/* Timeline scale: 'time' = one fixed scale for every row (compare stories by eye),
+   'fit' = each story fills its own row (see the shape of a story at a glance). */
+let scaleMode = store.get('scaleMode', 'time');
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  scaleMode = b.dataset.m; store.set('scaleMode', scaleMode); render();
+});
+let resizeQueued = false;
+window.addEventListener('resize', () => {
+  if (scaleMode !== 'fit' || resizeQueued) return;
+  resizeQueued = true; requestAnimationFrame(() => { resizeQueued = false; render(); });
+});
+
+/* ---------- log ----------------------------------------------------------- */
+function log(msg, cls = '') {
+  const d = document.createElement('div'); if (cls) d.className = cls;
+  d.textContent = new Date().toLocaleTimeString('en-GB') + '  ' + msg;
+  $('log').prepend(d);
+  while ($('log').childElementCount > 400) $('log').lastChild.remove();
+}
+$('btnClearLog').onclick = () => $('log').textContent = '';
+const short = o => { const s = JSON.stringify(o); return s === '{}' ? '' : (s.length > 160 ? s.slice(0, 160) + '…' : s); };
+
+/* =========================================================================
+   obs-websocket v5 client
+   ========================================================================= */
+const OBS = {
+  ws: null, ready: false, seq: 0, pending: new Map(), handlers: {}, hello: null,
+  async sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return btoa(String.fromCharCode(...new Uint8Array(b))); },
+  connect(url, password) {
+    return new Promise((resolve, reject) => {
+      this.disconnect();
+      let ws; try { ws = new WebSocket(url, 'obswebsocket.json'); } catch (e) { return reject(e); }
+      this.ws = ws;
+      const fail = e => { if (!this.ready) reject(e); };
+      ws.onerror = () => fail(new Error('WebSocket error (blocked, wrong port, or OBS server off)'));
+      ws.onclose = ev => {
+        const was = this.ready; this.ready = false;
+        for (const p of this.pending.values()) p.reject(new Error('connection closed'));
+        this.pending.clear();
+        if (was) this.emit('closed', ev); else fail(new Error(`closed before ready (code ${ev.code}${ev.reason ? ': ' + ev.reason : ''})`));
+      };
+      ws.onmessage = async ev => {
+        const m = JSON.parse(ev.data);
+        if (m.op === 0) {
+          this.hello = m.d;
+          const id = { rpcVersion: 1, eventSubscriptions: 0x7FF };
+          if (m.d.authentication) {
+            if (!password) return fail(new Error('OBS requires a password'));
+            if (!crypto.subtle) return fail(new Error('crypto.subtle unavailable — use http://localhost'));
+            id.authentication = await this.sha(await this.sha(password + m.d.authentication.salt) + m.d.authentication.challenge);
+          }
+          ws.send(JSON.stringify({ op: 1, d: id }));
+        } else if (m.op === 2) { this.ready = true; resolve(this.hello); }
+        else if (m.op === 5) { this.emit('event', m.d); this.emit(m.d.eventType, m.d.eventData || {}); }
+        else if (m.op === 7) {
+          const p = this.pending.get(m.d.requestId); if (!p) return;
+          this.pending.delete(m.d.requestId);
+          const st = m.d.requestStatus;
+          st.result ? p.resolve(m.d.responseData || {}) : p.reject(new Error(`${m.d.requestType} failed (${st.code})${st.comment ? ': ' + st.comment : ''}`));
+        }
+      };
+    });
+  },
+  disconnect() { if (this.ws) { try { this.ws.close(); } catch {} } this.ws = null; this.ready = false; },
+  call(type, data = {}) {
+    if (!this.ready) return Promise.reject(new Error('not connected'));
+    const requestId = 'r' + (++this.seq);
+    return new Promise((resolve, reject) => {
+      this.pending.set(requestId, { resolve, reject });
+      this.ws.send(JSON.stringify({ op: 6, d: { requestType: type, requestId, requestData: data } }));
+      setTimeout(() => { if (this.pending.has(requestId)) { this.pending.delete(requestId); reject(new Error(type + ' timed out')); } }, 5000);
+    });
+  },
+  on(n, fn) { (this.handlers[n] ||= []).push(fn); },
+  emit(n, d) { (this.handlers[n] || []).forEach(fn => { try { fn(d); } catch (e) { console.error(e); } }); },
+};
+async function obs(type, data = {}, quiet = false) {
+  try { const r = await OBS.call(type, data); if (!quiet) log(`✓ ${type} ${short(data)}`, 'ok'); return r; }
+  catch (e) { log(`✗ ${type} ${short(data)} → ${e.message}`, 'bad'); throw e; }
+}
+const MEDIA = a => 'OBS_WEBSOCKET_MEDIA_INPUT_ACTION_' + a;
+const director = { emit(type, data = {}) { log(`🎬 ${type} ${short(data)}`, 'dim'); } };   // parked hook
+
+/* =========================================================================
+   Formatting / time
+   ========================================================================= */
+const fmt = ms => { if (ms == null || !isFinite(ms)) return '—'; const s = Math.round(Math.max(0, ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const parseDur = t => { const m = /^(\d+):(\d{1,2})$/.exec(t || ''); return m ? (+m[1] * 60 + +m[2]) * 1000 : 0; };
+function offAirDate() {
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec($('offAir').value.trim());
+  if (!m) return null;
+  const d = new Date(); d.setHours(+m[1], +m[2], +(m[3] || 0), 0); return d;
+}
+function clipPath(name) {
+  let dir = $('mediaDir').value.trim();
+  if (!dir) throw new Error('Set the media folder first (Setup & connection)');
+  name = (name || '').trim();
+  if (!name) throw new Error('No clip filename');
+  if (/[\\/]/.test(name)) throw new Error('Filename only, no folders: ' + name);
+  const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/';
+  return (dir.endsWith(sep) ? dir : dir + sep) + name;
+}
+
+/* =========================================================================
+   Running order model
+   stories: { title, readMs, els:[elIndex], studioUsed }
+   els:     { type:'cam'|'vt'|'gfx', arg, story, state, check, straps:[], outCue,
+              vt only: sound:'sot'|'off', readMs (read over an OFF VT), sotUpMs|null }
+   straps:  { text, inMs|null, outMs|null, state:'pending'|'on'|'done' }
+   ========================================================================= */
+let title = 'Test bulletin', stories = [], els = [];
+let cursor = 0;            // vision element TAKE will fire
+let onAir = null;          // { el, player?, startedAt }
+let lastCam = null, programScene = null;
+let live = false;          // programme has started
+let lastStory = 0;         // story of the last thing taken (owns studio time)
+let studio = null;         // { story, since } while a camera is on program
+
+function parseRO(text) { ({ title, stories, els } = parseROModel(text)); }
+
+/* Text → a model, without touching the one on air (the feed merges into it). */
+function parseROModel(text) {
+  let title = 'Test bulletin'; const stories = [], els = [];
+  const lastVision = () => { const s = stories[stories.length - 1]; return s && s.els.length ? els[s.els[s.els.length - 1]] : null; };
+  for (const raw of text.split('\n')) {
+    const line = raw.trim(); if (!line) continue;
+    if (/^title\s+/i.test(line)) { title = line.replace(/^title\s+/i, ''); continue; }
+    if (line.startsWith('#')) {
+      const m = /^#\s*(.*?)\s*(?:@(\d+:\d{1,2}))?$/.exec(line);
+      stories.push({ title: m[1] || 'Untitled', readMs: parseDur(m[2]), els: [], studioUsed: 0 });
+      continue;
+    }
+    if (!stories.length) stories.push({ title: 'Untitled', readMs: 0, els: [], studioUsed: 0 });
+    if (line.startsWith('>')) {
+      const v = lastVision();
+      if (v) v.outCue = line.slice(1).trim().replace(/^["“]|["”]$/g, '');
+      else log('Out words with no camera/VT above them: ' + line, 'warn');
+      continue;
+    }
+    const sp = line.indexOf(' ');
+    let type = (sp < 0 ? line : line.slice(0, sp)).toLowerCase();
+    let arg = sp < 0 ? '' : line.slice(sp + 1).trim();
+    if (type === 'l3') type = 'strap';
+    if (type === 'clear') { log('"clear" is no longer needed — straps clear when you cut away', 'dim'); continue; }
+    if (type === 'strap') {
+      const v = lastVision();
+      if (!v) { log('Strap with no camera/VT above it: ' + line, 'warn'); continue; }
+      const t = /^@(\d+(?:\.\d+)?)(?:-(\d+(?:\.\d+)?))?\s+(.*)$/.exec(arg);
+      v.straps.push(t
+        ? { text: t[3], inMs: +t[1] * 1000, outMs: t[2] != null ? +t[2] * 1000 : null, state: 'pending' }
+        : { text: arg, inMs: null, outMs: null, state: 'pending' });
+      continue;
+    }
+    if (!['cam', 'vt', 'gfx'].includes(type)) { log('Unknown line: ' + line, 'warn'); continue; }
+    const s = stories.length - 1;
+    stories[s].els.push(els.length);
+    const e = { type, arg, story: s, state: 'pending', check: null, straps: [], outCue: null };
+    if (type === 'vt') Object.assign(e, vtSound(arg));
+    els.push(e);
+  }
+  return { title, stories, els };
+}
+
+/* 'vt file | off @0:06 sotup @0:08': sound after the bar. Plain 'vt file' (or '| sot') is full
+   sound. OFF: the presenter reads over the pictures for @m:ss; sotup: the clip's own sound
+   comes up at that point (one file cut as OOV then SOT). */
+function vtSound(arg) {
+  const bar = arg.indexOf('|');
+  const e = { arg: (bar < 0 ? arg : arg.slice(0, bar)).trim(), sound: 'sot', readMs: 0, sotUpMs: null };
+  if (bar < 0) return e;
+  const opts = arg.slice(bar + 1);
+  const off = /\boff\b(?:\s*@(\d+:\d{1,2}))?/i.exec(opts);
+  if (off) { e.sound = 'off'; e.readMs = parseDur(off[1]); }
+  const up = /\bsotup\s*@(\d+:\d{1,2})/i.exec(opts);
+  if (off && up) e.sotUpMs = parseDur(up[1]);
+  else if (!off && !/^\s*(sot)?\s*$/i.test(opts)) log('Unknown VT options: ' + opts.trim(), 'warn');
+  return e;
+}
+
+/* ---------- durations ------------------------------------------------------ */
+/* A story's read time covers every word. Words read over an OFF VT belong to that VT:
+   its slot is the longer of its pictures and the read over them. Cameras and full-frame
+   graphics share what's left. So a story = read + SOT VTs + any OFF pictures that run past
+   their read: the same rule as the desk's estimate (scriptTiming in ../index.html). */
+const vtPics = e => (e.check?.ok ? e.check.durationMs : 0);
+const offRead = s => stories[s].els.reduce((t, i) => t + (els[i].sound === 'off' ? els[i].readMs : 0), 0);
+const camRead = s => Math.max(0, stories[s].readMs - offRead(s));
+function elDur(i) {
+  const e = els[i]; if (!e) return 0;
+  if (e.type === 'vt') return e.sound === 'off' ? Math.max(vtPics(e), e.readMs) : vtPics(e);
+  const s = stories[e.story], cams = s.els.filter(j => els[j].type !== 'vt').length || 1;
+  return camRead(e.story) / cams;
+}
+/* The words run past the pictures on an OFF VT (ms), or 0. */
+const picsShort = e => (e.sound === 'off' && e.check?.ok ? Math.max(0, e.readMs - e.check.durationMs) : 0);
+const vtTotal = s => stories[s].els.reduce((t, i) => t + (els[i].type === 'vt' ? elDur(i) : 0), 0);
+const storyDur = s => camRead(s) + vtTotal(s);
+const totalDur = () => stories.reduce((t, _, s) => t + storyDur(s), 0);
+
+/* Studio time belongs to the story, however many camera angles it uses.
+   Cutting CAM_1 → CAM_2 mid-interview doesn't change the story's budget. */
+function studioStart(story) {
+  const now = performance.now();
+  if (studio) stories[studio.story].studioUsed += now - studio.since;
+  studio = { story, since: now };
+}
+function studioStop() {
+  if (studio) stories[studio.story].studioUsed += performance.now() - studio.since;
+  studio = null;
+}
+function studioRemaining(s) {
+  const st = stories[s];
+  const live = studio?.story === s ? performance.now() - studio.since : 0;
+  return Math.max(0, camRead(s) - st.studioUsed - live);
+}
+const storyDone = s => stories[s].els.length && stories[s].els.every(i => els[i].state === 'done');
+
+/* Actual time on air per story (Act column): from its first take until a take in another
+   story. Going back to a story adds to its time rather than restarting it. */
+function actMove(toStory) {
+  const now = performance.now();
+  if (live && lastStory !== toStory) {
+    const s = stories[lastStory];
+    if (s?.actStart != null) { s.actMs = (s.actMs || 0) + now - s.actStart; s.actStart = null; }
+  }
+  const t = stories[toStory];
+  if (t && t.actStart == null) t.actStart = now;
+}
+function actOf(s) {
+  const st = stories[s];
+  if (!st || (st.actMs == null && st.actStart == null)) return null;
+  return (st.actMs || 0) + (st.actStart != null ? performance.now() - st.actStart : 0);
+}
+/* Back: time from the start of each story to the end of the programme (planned lengths).
+   Front: off-air time minus back, i.e. the planned hit time. */
+function backTimes() {
+  const back = new Array(stories.length); let t = 0;
+  for (let s = stories.length - 1; s >= 0; s--) { t += storyDur(s); back[s] = t; }
+  return back;
+}
+const clockOf = ms => new Date(ms).toLocaleTimeString('en-GB');
+const signed = ms => (ms >= 0 ? '+' : '−') + fmt(Math.abs(ms));
+
+function remainingMs() {
+  if (!live) {
+    const s0 = els[cursor]?.story ?? stories.length;
+    let t = 0; for (let s = s0; s < stories.length; s++) t += storyDur(s); return t;
+  }
+  const cs = lastStory;
+  let t = studioRemaining(cs);
+  for (const i of stories[cs].els) {
+    if (els[i].type !== 'vt') continue;
+    if (i === onAir?.el) {
+      const pics = countdown.key ? countdown.remainingMs() : 0;
+      // an OFF VT stays up until the presenter finishes reading over it
+      t += els[i].sound === 'off' ? Math.max(pics, els[i].readMs - (performance.now() - onAir.startedAt)) : pics;
+    }
+    else if (els[i].state !== 'done' && i > (onAir?.el ?? -1)) t += elDur(i);
+  }
+  for (let s = cs + 1; s < stories.length; s++) if (!storyDone(s)) t += storyDur(s);
+  return t;
+}
+
+/* =========================================================================
+   VT players (A/B) — cue then take
+   ========================================================================= */
+const players = { A: { key: 'A', el: -1, ok: false, durationMs: 0, busy: null }, B: { key: 'B', el: -1, ok: false, durationMs: 0, busy: null } };
+const pInput = k => $(k === 'A' ? 'vtAInput' : 'vtBInput').value.trim();
+const pScene = k => $(k === 'A' ? 'vtAScene' : 'vtBScene').value.trim();
+const other = k => (k === 'A' ? 'B' : 'A');
+function freePlayer() {
+  if (onAir?.player) return other(onAir.player);
+  if (programScene === pScene('A')) return 'B';          // never cue into what's on program
+  return 'A';
+}
+OBS.on('CurrentProgramSceneChanged', d => { programScene = d.sceneName; precutAtem(); });
+
+async function openAndMeasure(input, path) {
+  await obs('SetInputSettings', { inputName: input, inputSettings: { is_local_file: true, local_file: path, close_when_inactive: false, restart_on_activate: false, looping: false } }, true);
+  await obs('TriggerMediaInputAction', { inputName: input, mediaAction: MEDIA('RESTART') }, true);
+  let st = null;
+  for (let i = 0; i < 12; i++) {
+    await sleep(250);
+    try { st = await OBS.call('GetMediaInputStatus', { inputName: input }); } catch { st = null; break; }
+    if (st?.mediaDuration > 0) break;
+  }
+  return st;
+}
+
+/* park a player paused on frame 0 */
+async function park(input) {
+  await OBS.call('TriggerMediaInputAction', { inputName: input, mediaAction: MEDIA('PAUSE') });
+  await OBS.call('SetMediaInputCursor', { inputName: input, mediaCursor: 0 });
+}
+
+async function cueVT(i, key) {
+  const e = els[i], p = players[key], input = pInput(key);
+  Object.assign(p, { el: i, ok: false, durationMs: 0 });
+  e.state = 'cueing'; render();
+  const job = (async () => {
+    let st = null;
+    try { st = await openAndMeasure(input, clipPath(e.arg)); } catch (err) { log('cue failed: ' + err.message, 'bad'); }
+    const ok = st?.mediaDuration > 0;
+    try { ok ? await park(input) : await OBS.call('TriggerMediaInputAction', { inputName: input, mediaAction: MEDIA('STOP') }); } catch {}
+    if (p.el !== i) return;
+    p.ok = ok; p.durationMs = ok ? st.mediaDuration : 0;
+    e.check = { ok, durationMs: p.durationMs };
+    if (e.state === 'cueing') e.state = ok ? 'ready' : 'missing';   // not if TAKE has moved past it meanwhile
+  })();
+  p.busy = job;
+  await job;
+  if (p.busy === job) p.busy = null;
+  render();
+}
+
+/* cue the next VT at or after the cursor while the presenter is still on camera */
+async function cueAhead() {
+  if (!OBS.ready) return;
+  precutAtem();
+  // next shot a full-frame graphic? get it loaded so the cut is clean
+  const g = els[cursor];
+  if (g?.type === 'gfx' && !isMissing(g)) { try { await loadGfx(g.arg); } catch {} }
+  const i = els.findIndex((e, n) => n >= cursor && e.type === 'vt' && e.arg && n !== onAir?.el);
+  if (i < 0) return;
+  const holder = Object.values(players).find(p => p.el === i && p.key !== onAir?.player);
+  if (holder && (holder.ok || holder.busy)) return;
+  await cueVT(i, freePlayer());
+}
+
+/* =========================================================================
+   Full-frame graphics — one GFX scene, image loaded ahead of the cut
+   ========================================================================= */
+const gfxInput = () => $('gfxInput').value.trim(), gfxScene = () => $('gfxScene').value.trim();
+let gfxLoaded = null;      // filename currently in the GFX source
+
+/* load an image into the GFX source — never while GFX is on program (that's the cut's job) */
+async function loadGfx(name, force = false) {
+  if (!force && (gfxLoaded === name || programScene === gfxScene())) return;
+  await obs('SetInputSettings', { inputName: gfxInput(), inputSettings: { file: clipPath(name) } }, true);
+  gfxLoaded = name;
+}
+
+/* does OBS see a real image? load it into the probe source and read its size */
+async function probeGfx(name) {
+  const input = $('gfxProbe').value.trim(), scene = $('probeScene').value.trim();
+  await obs('SetInputSettings', { inputName: input, inputSettings: { file: clipPath(name) } }, true);
+  let w = 0, h = 0;
+  for (let k = 0; k < 6 && !w; k++) {
+    await sleep(150);
+    try {
+      const { sceneItemId } = await OBS.call('GetSceneItemId', { sceneName: scene, sourceName: input });
+      const { sceneItemTransform: t } = await OBS.call('GetSceneItemTransform', { sceneName: scene, sceneItemId });
+      w = t.sourceWidth || 0; h = t.sourceHeight || 0;
+    } catch (e) { log('GFX probe: ' + e.message, 'bad'); break; }
+  }
+  return { ok: w > 0, w, h };
+}
+
+/* =========================================================================
+   Straps — a graphics lane separate from vision
+   ========================================================================= */
+let strapOn = null;        // { el, k }
+let strapTimers = [];
+const setL3 = text => obs('SetInputSettings', { inputName: $('l3Input').value.trim(), inputSettings: { text } });
+
+async function strapIn(el, k) {
+  const st = els[el]?.straps[k]; if (!st) return;
+  if (strapOn) await strapOut();
+  try { await setL3(st.text); st.state = 'on'; strapOn = { el, k }; } catch {}
+  render();
+}
+async function strapOut() {
+  if (!strapOn) return;
+  const st = els[strapOn.el]?.straps[strapOn.k];
+  strapOn = null;
+  if (st) st.state = 'done';
+  try { await setL3(''); } catch {}
+  render();
+}
+function cancelStrapTimers() { strapTimers.forEach(clearTimeout); strapTimers = []; }
+
+/* called whenever vision changes: anything on screen goes, timed straps for the new shot are scheduled.
+   The clear is awaited first, so an @0 strap can never race its own clear. */
+async function strapsForCut(el) {
+  cancelStrapTimers();
+  await strapOut();
+  if (el == null) return;
+  els[el].straps.forEach((st, k) => {
+    if (st.inMs == null || st.state === 'done') return;
+    strapTimers.push(setTimeout(() => {
+      if (onAir?.el !== el) return;
+      strapIn(el, k);
+      if (st.outMs != null) strapTimers.push(setTimeout(() => {
+        if (strapOn?.el === el && strapOn.k === k) strapOut();
+      }, Math.max(0, st.outMs - st.inMs)));
+    }, st.inMs));
+  });
+}
+
+/* G key / strap button: take the next manual strap in, or the current one out */
+function nextManualStrap() {
+  if (onAir?.el == null) return null;
+  // G only ever drives manual straps; timed ones run on their own clock.
+  const k = els[onAir.el].straps.findIndex(st => st.inMs == null && st.state === 'pending');
+  return k < 0 ? null : { el: onAir.el, k };
+}
+function strapToggle() {
+  if (strapOn) return strapOut();
+  const n = nextManualStrap();
+  if (n) strapIn(n.el, n.k); else log('No strap left on this shot', 'warn');
+}
+$('btnStrap').onclick = strapToggle;
+$('adClear').onclick = () => strapOut();
+
+/* =========================================================================
+   ATEM through Bridge (optional; off = the director behaves exactly as without it).
+   Bridge (bridge/bridge.mjs, `npm run bridge`) speaks the ATEM's protocol for us over a
+   loopback WebSocket. Its ack means the ATEM has CONFIRMED program changed (proven at
+   25–28 ms on a Mini Pro ISO), so OBS is switched only after it, plus the capture delay:
+   the capture card shows the new camera a few frames after the ATEM does.
+   A program change Bridge didn't make ('external': the panel, ATEM Software Control) while
+   OBS shows the ATEM marks the on-air row MANUAL. The cursor never moves on its own.
+   ========================================================================= */
+const atem = {
+  ws: null, up: false, status: null, pgm: null, inputs: [], waits: new Map(), seq: 0, retry: null,
+  manual: null,              // { input } while the ATEM shows something the running order didn't take
+  fresh: false,              // the next pgm is the state at hello, not a change
+  changedAt: 0,              // performance.now() of the last program change: the capture card catches up from here
+  on: () => $('atemOn').checked,
+  connect() {
+    clearTimeout(this.retry);
+    if (!this.on() || this.ws) return;
+    let ws;
+    try { ws = new WebSocket($('bridgeUrl').value.trim()); } catch (e) { atemMsg('Bridge URL not usable: ' + e.message); return; }
+    this.ws = ws;
+    ws.onopen = () => { this.up = true; ws.send(JSON.stringify({ op: 'hello', v: 1 })); log('Connected to Bridge', 'ok'); renderAtem(); };
+    ws.onmessage = ev => { try { this.onMsg(JSON.parse(ev.data)); } catch (e) { console.error(e); } };
+    ws.onerror = () => {};
+    ws.onclose = () => {
+      if (this.ws !== ws) return;
+      const was = this.up;
+      Object.assign(this, { ws: null, up: false, status: null });
+      for (const done of this.waits.values()) done({ ok: false, error: 'Bridge connection lost' });
+      this.waits.clear();
+      if (was) log('Bridge connection lost', 'bad');
+      renderAtem();
+      if (this.on()) this.retry = setTimeout(() => this.connect(), 3000);   // Bridge restarted, or not started yet
+    };
+  },
+  close() {
+    clearTimeout(this.retry);
+    const ws = this.ws;
+    Object.assign(this, { ws: null, up: false, status: null, manual: null });
+    for (const done of this.waits.values()) done({ ok: false, error: 'ATEM switched off' });
+    this.waits.clear();
+    try { ws?.close(); } catch {}
+    renderAtem();
+  },
+  onMsg(m) {
+    if (m.ev === 'hello') this.fresh = true;
+    else if (m.ev === 'status') {
+      if ((this.status?.connected ?? null) !== m.connected) log(m.connected ? `ATEM connected${m.model ? ' · ' + m.model : ''}` : 'ATEM not connected (Bridge is running)', m.connected ? 'ok' : 'bad');
+      this.status = m;
+    } else if (m.ev === 'inputs') this.inputs = m.list || [];
+    else if (m.ev === 'pgm') {
+      this.pgm = m.input;
+      if (this.fresh) { this.fresh = false; setTimeout(precutAtem, 0); }
+      else {
+        this.changedAt = performance.now();
+        if (m.source === 'external') atemExternal(m.input);
+      }
+    } else if (m.ev === 'ack') {
+      const done = this.waits.get(m.id);
+      if (done) { this.waits.delete(m.id); done(m); }
+    } else if (m.ev === 'error') log('Bridge: ' + m.error, 'bad');
+    renderAtem();
+  },
+  /* → { ok, error } once the ATEM has confirmed (or refused). Never throws. */
+  cut(input) {
+    if (!this.up) return Promise.resolve({ ok: false, error: 'Bridge not connected' });
+    if (!this.status?.connected) return Promise.resolve({ ok: false, error: 'ATEM not connected' });
+    const id = 'd' + (++this.seq);
+    return new Promise(resolve => {
+      const t = setTimeout(() => { if (this.waits.delete(id)) resolve({ ok: false, error: 'no answer from Bridge' }); }, 3000);
+      this.waits.set(id, m => { clearTimeout(t); resolve(m); });
+      this.ws.send(JSON.stringify({ op: 'cut', input, id }));
+    });
+  },
+  name(input) {
+    const i = this.inputs.find(i => i.id === input);
+    return i ? i.shortName || i.longName : input == null ? '—' : 'input ' + input;
+  },
+};
+const atemMsg = t => { $('atemMsg').textContent = t; };
+const captureMs = () => Math.max(0, Math.min(1000, +$('captureMs').value || 0));
+
+/* The rig mapping: { "CAM_1": { "atem": 1, "obs": "ATEM_FEED" }, ... } keyed by the cam
+   scene names the running order already uses. → { map } or { error }. */
+let rigCache = { text: null, val: null };
+function rig() {
+  const text = $('rigMap').value;
+  if (rigCache.text === text) return rigCache.val;
+  let val;
+  try {
+    const o = JSON.parse(text.trim() || '{}');
+    if (!o || typeof o !== 'object' || Array.isArray(o)) throw new Error('it must be a { … } object');
+    for (const [k, v] of Object.entries(o)) {
+      if (!Number.isInteger(v?.atem) || typeof v?.obs !== 'string' || !v.obs.trim()) throw new Error(`"${k}" needs "atem": a number and "obs": a scene name`);
+    }
+    val = { map: o };
+  } catch (e) { val = { error: e instanceof SyntaxError ? 'it isn\'t valid JSON' : e.message }; }
+  rigCache = { text, val };
+  return val;
+}
+const atemFor = cam => (atem.on() ? rig().map?.[cam] || null : null);
+const feedScenes = () => new Set(Object.values(rig().map || {}).map(v => v.obs));
+
+/* A camera cut refused before anything changed on air. TAKE shows it like a missing VT. */
+class Refused extends Error {}
+
+/* Every camera cut goes through here: TAKE, Back to presenter, auto-cut after a VT.
+   Mapped camera: ATEM first (wait for its confirmation), then the capture delay, then OBS
+   to the feed scene; if OBS already shows the feed, the ATEM cut is the whole cut.
+   Unmapped camera, or ATEM off: OBS straight to the camera's scene, as before. */
+async function cutCam(cam) {
+  if (atem.on() && rig().error) throw new Refused(`The rig mapping isn't usable: ${rig().error}`);
+  const m = atemFor(cam);
+  if (!m) { await obs('SetCurrentProgramScene', { sceneName: cam }); programScene = cam; return; }
+  const r = await atem.cut(m.atem);
+  if (!r.ok) throw new Refused(`ATEM didn't take ${cam.replace(/_/g, ' ')} (input ${m.atem}): ${r.error}`);
+  atem.manual = null;
+  if (programScene !== m.obs) {
+    // the capture card shows a change captureMs after it: after a preset that's long past
+    const wait = captureMs() - (performance.now() - atem.changedAt);
+    if (wait > 0) await sleep(wait);
+    await obs('SetCurrentProgramScene', { sceneName: m.obs });
+    programScene = m.obs;     // don't wait for OBS's event: a camera → camera cut next must know
+  }
+}
+
+/* The ATEM's program changed and Bridge didn't do it. Only matters while OBS shows the ATEM. */
+function atemExternal(input) {
+  if (!atem.on()) return;
+  if (!feedScenes().has(programScene)) { log(`ATEM program → ${atem.name(input)} on the panel (not on air: OBS isn't showing the ATEM)`, 'dim'); return; }
+  const air = onAir ? els[onAir.el] : null;
+  const cam = air?.type === 'cam' ? air.arg : lastCam;
+  if (cam && atemFor(cam)?.atem === input) {
+    if (atem.manual) log(`ATEM back on ${atem.name(input)}, where the running order is`, 'ok');
+    atem.manual = null;
+  } else {
+    atem.manual = { input };
+    log(`MANUAL: the ATEM was cut to ${atem.name(input)} on the panel. The running order hasn't moved.`, 'warn');
+  }
+  render();
+}
+
+/* While OBS isn't showing the ATEM (a VT, a graphic, an unmapped scene), the ATEM's program
+   isn't on air, so cut it to the camera TAKE will fire next: TAKE back to that camera is then
+   only the OBS switch, with the capture delay already over. Never while OBS shows the ATEM.
+   A panel press after the preset is left alone: TAKE then does a full cut, with the delay. */
+let precutting = false;
+async function precutAtem() {
+  if (!$('atemPrecut').checked || precutting || taking) return;
+  if (!atem.on() || !atem.up || !atem.status?.connected || !OBS.ready) return;
+  if (programScene == null || feedScenes().has(programScene)) return;
+  const e = els[cursor];
+  const m = e?.type === 'cam' ? atemFor(e.arg) : null;
+  if (!m || atem.pgm === m.atem) return;
+  precutting = true;
+  try {
+    const r = await atem.cut(m.atem);
+    if (r.ok) log(`ATEM preset to ${atem.name(m.atem)} for the next TAKE (OBS isn't showing the ATEM)`, 'dim');
+    else log(`ATEM preset to ${e.arg.replace(/_/g, ' ')} failed: ${r.error}. TAKE will try again.`, 'warn');
+  } finally { precutting = false; }
+}
+
+function renderAtem() {
+  const c = $('atemChip');
+  c.hidden = !atem.on();
+  if (c.hidden) return;
+  const bad = !atem.up || !atem.status?.connected;
+  c.className = 'chip' + (bad ? ' bad' : atem.manual ? ' warn' : '');
+  $('atemText').textContent = !atem.up ? 'ATEM · BRIDGE OFFLINE'
+    : !atem.status?.connected ? 'ATEM NOT CONNECTED'
+    : `ATEM · PGM ${atem.name(atem.pgm)}${atem.manual ? ' · MANUAL' : ''}`;
+}
+
+$('atemOn').checked = store.get('atemOn', '0') === '1';
+$('atemOn').addEventListener('change', () => {
+  store.set('atemOn', $('atemOn').checked ? '1' : '0');
+  if ($('atemOn').checked) atem.connect(); else atem.close();
+  render();
+});
+$('atemPrecut').checked = store.get('atemPrecut', '1') === '1';
+$('atemPrecut').addEventListener('change', () => { store.set('atemPrecut', $('atemPrecut').checked ? '1' : '0'); precutAtem(); });
+$('bridgeUrl').addEventListener('change', () => { if (atem.on()) { atem.close(); atem.connect(); } });
+$('rigMap').addEventListener('change', () => { const r = rig(); atemMsg(r.error ? 'Rig mapping: ' + r.error : ''); render(); });
+
+/* Measure the capture delay: cut the ATEM between black and bars and time how long the
+   OBS feed scene takes to show each change, from the ATEM's confirmation. Each look at
+   OBS (a tiny screenshot) takes a few ms, which limits the precision; reported. */
+let frameLuma = dataUrl => new Promise((resolve, reject) => {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = 16; c.height = 9;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0, 16, 9);
+    const d = g.getImageData(0, 0, 16, 9).data; let sum = 0;
+    for (let k = 0; k < d.length; k += 4) sum += 0.2126 * d[k] + 0.7152 * d[k + 1] + 0.0722 * d[k + 2];
+    resolve(sum / (d.length / 4));
+  };
+  img.onerror = () => reject(new Error('could not read the OBS screenshot'));
+  img.src = dataUrl;
+});
+async function measureCapture() {
+  if (live) return atemMsg('Not during a show: this cuts the ATEM.');
+  if (!OBS.ready) return atemMsg('Connect OBS first.');
+  if (!atem.up || !atem.status?.connected) return atemMsg('Bridge and the ATEM must both be connected.');
+  const scene = Object.values(rig().map || {})[0]?.obs;
+  if (!scene) return atemMsg('The rig mapping names no OBS scene for the ATEM.');
+  const back = atem.pgm, samples = [], looks = [];
+  $('btnMeasure').disabled = true;
+  atemMsg('Measuring: the ATEM is cutting between black and bars…');
+  try {
+    const shot = async () => {
+      const q = performance.now();
+      const { imageData } = await OBS.call('GetSourceScreenshot', { sourceName: scene, imageFormat: 'png', imageWidth: 16, imageHeight: 9 });
+      looks.push(performance.now() - q);
+      return frameLuma(imageData);
+    };
+    let r = await atem.cut(0);
+    if (!r.ok) throw new Error('the ATEM refused black: ' + r.error);
+    await sleep(600);
+    for (let k = 0; k < 10; k++) {
+      const bright = k % 2 === 0, target = bright ? 1000 : 0;
+      r = await atem.cut(target);
+      if (!r.ok) throw new Error('the ATEM refused a cut: ' + r.error);
+      const t0 = performance.now();
+      let seen = null;
+      while (performance.now() - t0 < 2000) {
+        const l = await shot();
+        if (bright ? l > 50 : l < 30) { seen = performance.now() - t0; break; }
+      }
+      if (seen == null) throw new Error(`OBS never showed ${bright ? 'bars' : 'black'} in "${scene}". Is the ATEM's output captured in that scene?`);
+      samples.push(seen);
+      await sleep(300);
+    }
+  } catch (e) {
+    atemMsg('Measure failed: ' + e.message);
+  } finally {
+    if (back != null) await atem.cut(back);
+    $('btnMeasure').disabled = false;
+  }
+  if (samples.length < 10) return;
+  samples.sort((a, b) => a - b); looks.sort((a, b) => a - b);
+  const med = samples[5], worst = samples[9], look = looks[looks.length >> 1];
+  const set = Math.ceil((worst + 40) / 10) * 10;          // the worst seen, plus a frame
+  $('captureMs').value = set; store.set('captureMs', String(set));
+  const text = `Capture delay: median ${Math.round(med)} ms, worst ${Math.round(worst)} ms (each look at OBS takes about ${Math.round(look)} ms, so ± that). Set to ${set} ms: the worst plus a frame.`;
+  atemMsg(text); log(text, 'ok');
+}
+$('btnMeasure').onclick = measureCapture;
+
+/* =========================================================================
+   TAKE — vision only
+   ========================================================================= */
+let taking = false, lastTakeAt = 0;
+async function take() {
+  const now = performance.now();
+  if (taking || now - lastTakeAt < 400) return;       // double-tap guard
+  lastTakeAt = now;
+  const i = cursor, e = els[i];
+  if (!e) return log('End of running order', 'warn');
+  if (!OBS.ready) return log('Not connected to OBS: nothing taken', 'warn');
+  hideSkip(); taking = true;
+  try {
+    const prev = onAir;
+    if (e.type === 'vt') {
+      if (!e.arg) { e.state = 'missing'; showSkip(e); return; }
+      let p = Object.values(players).find(p => p.el === i && p.key !== onAir?.player);
+      if (!p) { await cueVT(i, freePlayer()); p = Object.values(players).find(p => p.el === i && p.key !== onAir?.player); }
+      // Known-missing VT being re-checked: refuse now rather than make the operator
+      // wait out the re-check. If the file has arrived, the row turns ready and the next TAKE runs it.
+      if (p?.busy && e.check && !e.check.ok) { showSkip(e); return; }
+      if (p?.busy) await p.busy;
+      if (!p || !p.ok) { showSkip(e); return; }
+      await Promise.all([
+        obs('TriggerMediaInputAction', { inputName: pInput(p.key), mediaAction: MEDIA('PLAY') }),
+        obs('SetCurrentProgramScene', { sceneName: pScene(p.key) }),
+      ]);
+      programScene = pScene(p.key);
+      onAir = { el: i, player: p.key, startedAt: performance.now() };
+      studioStop();
+      countdown.start(p.key, p.durationMs);
+    } else if (e.type === 'gfx') {
+      if (!e.check) e.check = await probeGfx(e.arg).catch(() => ({ ok: false }));
+      if (!e.check.ok) { e.state = 'missing'; showSkip(e); return; }
+      // GFX already on program (graphic → graphic): swapping the file IS the cut
+      if (programScene === gfxScene()) await loadGfx(e.arg, true); else await loadGfx(e.arg);
+      await obs('SetCurrentProgramScene', { sceneName: gfxScene() });
+      programScene = gfxScene();
+      onAir = { el: i, startedAt: performance.now() };
+      studioStart(e.story);                 // presenter voices over it — story studio time
+    } else {
+      try { await cutCam(e.arg); }
+      catch (err) { if (err instanceof Refused) { log(err.message, 'bad'); showSkip(e, err.message); return; } throw err; }
+      lastCam = e.arg;
+      onAir = { el: i, startedAt: performance.now() };
+      studioStart(e.story);
+    }
+    if (e.type !== 'cam') atem.manual = null;       // OBS has left the ATEM feed
+    actMove(e.story);
+    live = true; lastStory = e.story;
+    retire(prev);
+    e.state = 'onair';
+    strapsForCut(i);
+    for (let n = 0; n < i; n++) if (n !== onAir.el && els[n].state !== 'onair') els[n].state = 'done';
+    for (const p of Object.values(players)) if (p.el >= 0 && p.el < i && p.key !== onAir.player && !p.busy) Object.assign(p, { el: -1, ok: false, durationMs: 0 });
+    cursor = Math.min(i + 1, els.length);
+    render();
+    cueAhead();
+  } catch (err) {
+    log(`TAKE failed on ${stories[e.story].title} / ${e.type}: ${err.message}`, 'bad');
+  } finally { taking = false; render(); precutAtem(); }
+}
+
+function retire(prev, label = 'No VT on air') {
+  if (!prev) return;
+  const pe = els[prev.el];
+  if (pe && pe.state === 'onair' && prev.el !== onAir?.el) pe.state = 'done';
+  if (prev.player && prev.player !== onAir?.player) {
+    OBS.call('TriggerMediaInputAction', { inputName: pInput(prev.player), mediaAction: MEDIA('STOP') }).catch(() => {});
+    Object.assign(players[prev.player], { el: -1, ok: false, durationMs: 0 });
+    if (!onAir?.player) countdown.stop(label);
+  }
+}
+
+/* ---------- missing VT prompt -------------------------------------------- */
+function showSkip(e, reason) {
+  const p = $('skipText'), sub = document.createElement('span');
+  p.textContent = reason ? `${reason}. Nothing taken.`
+    : e.arg ? `${e.type === 'gfx' ? 'GFX' : 'VT'} MISSING — ${e.arg}. Nothing taken.` : 'VT HAS NO FILE — the desk script names none. Nothing taken.';
+  sub.textContent = 'Still on the last shot. Skip moves the cursor on; Stay keeps it here.';
+  p.append(sub);
+  $('skip').classList.add('show');
+}
+function hideSkip() { $('skip').classList.remove('show'); }
+$('btnSkip').onclick = () => { hideSkip(); move(1); };
+$('btnStay').onclick = hideSkip;
+
+/* ---------- ad-lib: back to presenter (cursor stays put) ----------------- */
+$('adBack').onclick = async () => {
+  const scene = lastCam || els.find(e => e.type === 'cam')?.arg;
+  if (!scene) return log('No camera to go back to', 'warn');
+  try {
+    const prev = onAir;
+    await cutCam(scene);
+    onAir = null; retire(prev, 'VT pulled');
+    strapsForCut(null);
+    studioStart(lastStory);
+    render();
+  } catch (err) { if (err instanceof Refused) log('Back to presenter: ' + err.message, 'bad'); }
+};
+
+/* ---------- re-cue: rewind the on-air (or cued) VT and put the cursor back on it */
+$('btnRecue').onclick = async () => {
+  if (onAir?.player) {
+    const k = onAir.player, i = onAir.el;
+    try { await park(pInput(k)); } catch (e) { return log('Re-cue failed: ' + e.message, 'bad'); }
+    els[i].state = 'ready';
+    Object.assign(players[k], { el: i, ok: true });
+    onAir = null;                                  // frame 0 held on program until TAKE
+    countdown.stop('Re-cued');
+    cursor = i;
+    log(`Re-cued ${els[i].arg} on VT ${k} — TAKE to run it again`, 'warn');
+    render();
+  } else {
+    const p = Object.values(players).find(p => p.el === cursor && p.ok);
+    if (p) { try { await park(pInput(p.key)); log('Rewound cued VT', 'ok'); } catch {} }
+    else log('No VT on air or cued to re-cue', 'warn');
+  }
+};
+
+/* =========================================================================
+   Countdown — OBS playhead polled 4×/s, interpolated between polls
+   ========================================================================= */
+const countdown = {
+  key: null, durationMs: 0, anchorCursor: 0, anchorAt: 0, playing: false, timer: null, ended: false,
+  start(key, durationMs) {
+    this.stop();
+    Object.assign(this, { key, durationMs, anchorCursor: 0, anchorAt: performance.now(), playing: true, ended: false });
+    $('cdLabel').textContent = `VT ${key} out in`;
+    this.timer = setInterval(() => this.poll(), 250);
+  },
+  async poll() {
+    if (!this.key) return;
+    try {
+      const st = await OBS.call('GetMediaInputStatus', { inputName: pInput(this.key) });
+      this.anchorCursor = st.mediaCursor ?? this.anchorCursor; this.anchorAt = performance.now();
+      this.playing = st.mediaState === 'OBS_MEDIA_STATE_PLAYING';
+      if (st.mediaDuration > 0) this.durationMs = st.mediaDuration;
+    } catch {}
+  },
+  remainingMs() { return Math.max(0, this.durationMs - (this.anchorCursor + (this.playing ? performance.now() - this.anchorAt : 0))); },
+  render() {
+    if (!this.key) return;
+    const rem = this.remainingMs(), secs = Math.ceil(rem / 1000);
+    const cd = $('cd');
+    cd.textContent = this.ended ? 'OUT' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+    cd.className = 'cd ' + (this.ended ? '' : secs <= 5 ? 'five' : secs <= 10 ? 'ten' : 'run');
+    $('cdFill').style.width = (this.durationMs ? (1 - rem / this.durationMs) * 100 : 0) + '%';
+    const e = els[onAir?.el], played = this.durationMs - rem;
+    $('cdLabel').textContent = `VT ${this.key} ${e?.sound === 'off' ? 'pictures ' : ''}out in`;
+    // sound first: the filename is what gets cut off on a narrow panel
+    const sound = e?.sound !== 'off' ? 'SOT' : e.sotUpMs == null ? 'OFF'
+      : played < e.sotUpMs ? `SOT up in ${fmt(e.sotUpMs - played)}` : 'SOT up';
+    $('cdMeta').textContent = `${sound} · ${e?.arg ?? ''} · ${fmt(this.durationMs)}`;
+  },
+  stop(label = 'No VT on air') {
+    clearInterval(this.timer); this.timer = null; this.key = null;
+    $('cdLabel').textContent = label; $('cd').textContent = '--:--'; $('cd').className = 'cd';
+    $('cdFill').style.width = '0'; $('cdMeta').textContent = '';
+  },
+};
+
+OBS.on('MediaInputPlaybackEnded', async d => {
+  if (!onAir?.player || d.inputName !== pInput(onAir.player)) return;
+  if (performance.now() - onAir.startedAt < 500) return;     // a bad file "ends" instantly
+  countdown.ended = true;
+  if ($('autoCut').checked && lastCam) {
+    try {
+      const prev = onAir;
+      await cutCam(lastCam);
+      onAir = null; retire(prev, 'VT out');
+      strapsForCut(null);
+      studioStart(lastStory);
+    } catch (err) { if (err instanceof Refused) log('Auto-cut after the VT: ' + err.message, 'bad'); }
+  }
+  setTimeout(() => { if (countdown.ended) countdown.stop('VT out'); }, 1500);
+  render();
+});
+
+/* =========================================================================
+   Check all VTs through the hidden probe
+   ========================================================================= */
+let checking = false;
+/* Same file, same answer: pass a check result to every other shot using that file.
+   This also reaches shots the feed rebuilt while the check was running. */
+function shareCheck(e) {
+  for (const x of els) {
+    if (x === e || x.type !== e.type || x.arg !== e.arg || !['pending', 'missing', 'checked'].includes(x.state)) continue;
+    x.check = e.check; x.state = e.state;
+  }
+}
+/* only: which shots to check (default all). quiet: a background re-check, which logs
+   only what turned up rather than the whole missing list every time. */
+async function checkAll(only = () => true, quiet = false) {
+  if (checking || !OBS.ready) return;
+  checking = true;
+  const input = $('probeInput').value.trim();
+  const list = els.slice();                 // the feed may swap els; finish on what we started with
+  const found = [];
+  try {
+    for (const e of list) {
+      if (e.type !== 'vt' || ['onair', 'cueing', 'ready'].includes(e.state) || !only(e)) continue;
+      const was = e.check?.ok;
+      if (!e.arg) {                          // a clip with no filename yet: nothing to look for
+        e.check = { ok: false, durationMs: 0 };
+        if (['pending', 'missing', 'checked'].includes(e.state)) e.state = 'missing';
+        continue;
+      }
+      let st = null;
+      try { st = await openAndMeasure(input, clipPath(e.arg)); } catch (err) { if (!quiet) log(err.message, 'bad'); }
+      try { await OBS.call('TriggerMediaInputAction', { inputName: input, mediaAction: MEDIA('STOP') }); } catch {}
+      const ok = st?.mediaDuration > 0;
+      e.check = { ok, durationMs: ok ? st.mediaDuration : 0 };
+      if (['pending', 'missing', 'checked'].includes(e.state)) e.state = ok ? 'checked' : 'missing';
+      shareCheck(e);
+      if (ok && was === false) found.push(e.arg);
+      render();
+    }
+    for (const e of list) {
+      if (e.type !== 'gfx' || e.state === 'onair' || !only(e)) continue;
+      const was = e.check?.ok;
+      try { e.check = await probeGfx(e.arg); } catch (err) { e.check = { ok: false }; if (!quiet) log(err.message, 'bad'); }
+      if (['pending', 'missing', 'checked'].includes(e.state)) e.state = e.check.ok ? 'checked' : 'missing';
+      shareCheck(e);
+      if (e.check.ok && was === false) found.push(e.arg);
+      render();
+    }
+    if (found.length) log('Now in the media folder: ' + [...new Set(found)].join(', '), 'ok');
+    if (!quiet) {
+      const missing = els.filter(e => (e.type === 'vt' || e.type === 'gfx') && e.check && !e.check.ok).map(e => e.arg || `(no file: ${stories[e.story]?.title})`);
+      log(missing.length ? 'Missing media: ' + [...new Set(missing)].join(', ') : 'All VTs and graphics present', missing.length ? 'bad' : 'ok');
+    }
+  } finally { checking = false; }
+}
+$('btnCheck').onclick = () => checkAll();
+
+/* A clip exported late turns green on its own: re-check missing media every so often,
+   through the probe sources only (never anything on program). */
+const MISSING_POLL_MS = window.MOIRA_MISSING_POLL_MS || 15000;
+setInterval(() => {
+  if (!OBS.ready || checking || taking) return;
+  const stillMissing = e => !!e.arg && e.state !== 'onair' && isMissing(e);
+  if (!els.some(e => (e.type === 'vt' || e.type === 'gfx') && stillMissing(e))) return;
+  checkAll(stillMissing, true).then(() => cueAhead());
+}, MISSING_POLL_MS);
+
+/* =========================================================================
+   Render
+   ========================================================================= */
+const isMissing = e => (e.type === 'vt' || e.type === 'gfx') && (e.state === 'missing' || (e.check && !e.check.ok));
+function elLabel(i) {
+  const e = els[i];
+  if (e.type === 'cam') return e.arg.replace(/_/g, ' ');
+  if (e.type === 'gfx') return isMissing(e) ? 'GFX missing' : 'GFX ' + e.arg.replace(/\.[a-z0-9]+$/i, '');
+  if (e.type === 'vt' && !e.arg) return 'VT no file';
+  if (isMissing(e)) return 'VT missing';
+  const k = players.A.el === i ? 'VT A' : players.B.el === i ? 'VT B' : 'VT';
+  return k + (e.check?.ok ? ' ' + fmt(e.check.durationMs) : '');
+}
+
+/* Scroll a row so the on-air element stays visible on the left and, if it
+   fits, the next element shows on the right. On-air wins if both can't fit. */
+function keepInView(track) {
+  const air = track.querySelector('.el.onair'), cur = track.querySelector('.el.cursor');
+  const pad = 16, W = track.clientWidth;
+  const L = el => el.offsetLeft, R = el => el.offsetLeft + el.offsetWidth;
+  if (air) {
+    const left = L(air) - pad;
+    if (cur && R(cur) + pad - left <= W) {
+      if (left < track.scrollLeft || R(cur) + pad > track.scrollLeft + W) track.scrollLeft = Math.max(0, left);
+    } else if (left < track.scrollLeft || R(air) + pad > track.scrollLeft + W) track.scrollLeft = Math.max(0, left);
+  } else if (cur) {
+    if (L(cur) - pad < track.scrollLeft) track.scrollLeft = Math.max(0, L(cur) - pad);
+    else if (R(cur) + 90 > track.scrollLeft + W) track.scrollLeft = R(cur) + 90 - W;
+  }
+}
+
+/* Share 'avail' pixels in proportion to durations, never going below each
+   element's floor. Elements that hit their floor are fixed and the rest is
+   re-shared. If the floors alone don't fit, use the floors (row scrolls). */
+function fitWidths(durs, floors, avail) {
+  const n = durs.length;
+  if (floors.reduce((a, b) => a + b, 0) >= avail) return floors.slice();
+  const fixed = new Array(n).fill(false), w = new Array(n).fill(0);
+  for (let pass = 0; pass <= n; pass++) {
+    let freeW = avail, freeD = 0, freeN = 0;
+    for (let k = 0; k < n; k++) if (fixed[k]) freeW -= floors[k]; else { freeD += durs[k]; freeN++; }
+    let changed = false;
+    for (let k = 0; k < n; k++) {
+      if (fixed[k]) { w[k] = floors[k]; continue; }
+      w[k] = freeD > 0 ? durs[k] / freeD * freeW : freeW / freeN;
+      if (w[k] < floors[k]) { fixed[k] = true; changed = true; }
+    }
+    if (!changed) break;
+  }
+  return w.map(v => Math.floor(v));
+}
+
+function render() {
+  $('hdrTitle').textContent = title; $('hdrTitle').title = title;
+  document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.m === scaleMode));
+  $('roCount').textContent = `${stories.length} stor${stories.length === 1 ? 'y' : 'ies'} · ${els.length} item${els.length === 1 ? '' : 's'}`;
+  const px = Math.max(2, +$('zoom').value || 8), GAP = 3;
+  const off = offAirDate(), back = backTimes();
+  const box = $('stories');
+  const prevScroll = [...box.querySelectorAll('.track')].map(t => t.scrollLeft);
+  box.innerHTML = '';
+  actCells = [];
+  stories.forEach((s, si) => {
+    const row = document.createElement('div');
+    const isAir = live && onAir && els[onAir.el]?.story === si;
+    const isNext = !isAir && cursor < els.length && els[cursor].story === si;
+    const done = storyDone(si);
+    row.className = 'story' + (isAir ? ' air' : isNext ? ' next' : done ? ' done' : '');
+    row.innerHTML = `<span class="num">${si + 1}</span><span class="fmt"></span><div class="slugcell"><div class="slug ell"></div><div class="flagline"></div></div>`
+      + `<div class="track"><div class="lane v"></div></div>`
+      + `<span class="t c-est">${fmt(storyDur(si))}</span><span class="t c-act">—</span>`
+      + `<span class="t">${off ? clockOf(off.getTime() - back[si]) : '—'}</span><span class="t c-back">${fmt(back[si])}</span>`
+      + `<div class="c-status"><span class="st"></span></div>`;
+    row.querySelector('.fmt').textContent = s.format || '';
+    const slug = row.querySelector('.slug');
+    slug.textContent = s.title; slug.title = s.title + (s.presenter ? ` · read by ${s.presenter}` : '');
+    actCells[si] = row.querySelector('.c-act');
+    paintAct(si);
+
+    // status
+    const st = row.querySelector('.st');
+    const media = s.els.filter(i => els[i].type !== 'cam');
+    const missing = media.find(i => isMissing(els[i]));
+    if (done) { st.className = 'st dim'; st.textContent = 'DONE'; }
+    else if (isAir && atem.manual) { st.className = 'st manual'; st.textContent = 'MANUAL · ' + atem.name(atem.manual.input); st.title = 'The ATEM was cut on the panel. The running order has not moved.'; }
+    else if (isAir) { st.className = 'st air'; st.textContent = 'ON AIR'; }
+    else if (isNext && isMissing(els[cursor])) { st.className = 'st bad'; st.textContent = missingLabel(els[cursor]); }
+    else if (isNext) { const r = shotReady(cursor); st.className = 'st next'; st.textContent = 'NEXT · ' + r.word; }
+    else if (missing != null) { st.className = 'st bad'; st.textContent = missingLabel(els[missing]); }
+    else if (media.length && media.every(i => els[i].check?.ok)) { st.className = 'st ok'; st.textContent = 'CHECKED'; }
+    else { st.className = 'st dim'; st.textContent = '—'; }
+
+    if (s.flag) {                            // the desk changed a story the director has frozen
+      const fl = row.querySelector('.flagline'), b = document.createElement('span');
+      b.className = 'flag' + (s.flag === 'removed' ? ' removed' : '');
+      b.textContent = s.flag === 'removed' ? 'REMOVED ON DESK' : 'CHANGED ON DESK';
+      b.title = s.flag === 'removed' ? 'Deleted, floated or moved below the line on the desk. Still here because it is on air or next.'
+                                     : 'Edited on the desk since it went on air or was cued. Still playing the earlier version.';
+      fl.append(b);
+      if (s.flag === 'changed' && feedCanAccept(si)) {
+        const u = document.createElement('button'); u.textContent = 'Update';
+        u.title = 'Take the desk version of this story now (it is not on air)';
+        u.onclick = ev => { ev.stopPropagation(); feedAccept(s.id); };
+        fl.append(u);
+      }
+    }
+    // things the operator should know before this story goes: from the desk walk, and the media checks
+    const hints = [...(s.warns || [])];
+    for (const i of s.els) {
+      const sh = picsShort(els[i]);
+      if (sh >= 1000) hints.push(`PICTURES SHORT ${fmt(sh)}`);
+      if (els[i].sotUpMs != null && els[i].readMs > els[i].sotUpMs + 500) hints.push('READ RUNS INTO SOT');
+    }
+    if (hints.length) {
+      const fl = row.querySelector('.flagline');
+      for (const h of hints) {
+        const b = document.createElement('span'); b.className = 'flag hint'; b.textContent = h;
+        b.title = HINT_TIPS[h.replace(/ \d.*$/, '')] || '';
+        fl.append(b);
+      }
+    }
+    const track = row.querySelector('.track'), laneV = row.querySelector('.lane.v');
+
+    // Append first: fit mode needs to measure the row's real width.
+    box.append(row);
+
+    // ---- widths: true time (fixed px/sec) or fit-to-row (share of the story) ----
+    const vis = s.els;
+    const durOf = i => els[i].type === 'vt' ? (els[i].check?.ok ? elDur(i) : 5000) : elDur(i);
+    const floorOf = i => els[i].type === 'vt' ? 110 : 80;
+    const widths = scaleMode === 'fit'
+      ? fitWidths(vis.map(durOf), vis.map(floorOf), Math.max(0, track.clientWidth - GAP * (vis.length - 1) - 4))
+      : vis.map(i => Math.round(Math.max(floorOf(i), durOf(i) / 1000 * px)));
+
+    // ---- vision lane ----
+    let x = 0; const lefts = {}, pxPerMs = {};
+    vis.forEach((i, n) => {
+      const e = els[i], chip = document.createElement('span'), w = widths[n];
+      chip.className = `el ${e.type}` +
+        (isMissing(e) ? ' missing' : '') + (e.type === 'vt' && !e.check ? ' unknown' : '') +
+        (e.state === 'cueing' ? ' cueing' : '') +
+        (i === onAir?.el ? ' onair' + (atem.manual ? ' manual' : '') : i === cursor ? ' cursor' : '') +
+        (e.state === 'done' && i !== onAir?.el ? ' done' : '');
+      chip.style.width = w + 'px';
+      chip.textContent = elLabel(i);
+      chip.title = `${e.type} ${e.arg}${e.outCue ? '\nOut: ' + e.outCue : ''}`;
+      chip.onclick = ev => { ev.stopPropagation(); cursor = i; hideSkip(); render(); cueAhead(); };
+      laneV.append(chip);
+      lefts[i] = x;
+      // strap positions follow the same scale as their shot
+      pxPerMs[i] = scaleMode === 'fit' ? (durOf(i) > 0 ? w / durOf(i) : 0) : px / 1000;
+      x += w + GAP;
+    });
+
+    // ---- sound lane: who is heard under each shot, same widths as the vision lane ----
+    const laneS = document.createElement('div'); laneS.className = 'lane s';
+    const snd = (cls, text, w, tip) => {
+      const x = document.createElement('span');
+      x.className = 'snd ' + cls; x.style.width = Math.max(0, w) + 'px'; x.textContent = text; if (tip) x.title = tip;
+      laneS.append(x);
+    };
+    vis.forEach((i, n) => {
+      const e = els[i], w = widths[n], done = e.state === 'done' && i !== onAir?.el ? ' done' : '';
+      if (e.type !== 'vt') return snd('pres' + done, 'PRES', w, 'Presenter mic live');
+      if (isMissing(e)) return e.sound === 'off'
+        ? snd('dead' + done, 'PRES · NO PICTURES', w, 'Presenter reads, but there are no pictures to read over')
+        : snd('dead' + done, 'NO PICTURES', w, 'No clip to play');
+      if (e.sound !== 'off') return snd('sot' + done, 'VT SOT', w, 'Clip at full sound; presenter mic closed');
+      const short = picsShort(e) ? ' short' : '';
+      const tip = `Presenter reads ${fmt(e.readMs)} over the pictures; natural sound low`;
+      const offText = w => (w >= 100 ? 'PRES · VT OFF' : w >= 50 ? 'VT OFF' : 'OFF');
+      if (e.sotUpMs == null) return snd('off' + short + done, offText(w), w, tip);
+      // one file, OOV then SOT: split the bar where the sound comes up
+      const at = Math.round(w * Math.min(1, e.sotUpMs / (elDur(i) || 1))), rest = w - at;
+      snd('off' + done, offText(at - GAP), at - GAP, tip);
+      snd('sot' + done, rest >= 120 ? `▲ ${fmt(e.sotUpMs)} VT SOT` : rest >= 76 ? '▲ VT SOT' : rest >= 48 ? '▲ SOT' : '▲', rest, `Clip sound up at ${fmt(e.sotUpMs)}; presenter mic closed`);
+    });
+    track.append(laneS);
+
+    // ---- graphics lane: straps under their shot; timed ones at their in-point ----
+    if (vis.some(i => els[i].straps.length)) {
+      const laneG = document.createElement('div'); laneG.className = 'lane g';
+      let maxR = x, free = 0;                    // 'free' = first x not yet used on this lane
+      for (const i of vis) {
+        els[i].straps.forEach((st, k) => {
+          const g = document.createElement('span');
+          const timed = st.inMs != null;
+          const want = lefts[i] + (timed ? st.inMs * pxPerMs[i] : 4);
+          const left = Math.max(want, free);     // never overlap the previous strap
+          const w = timed && st.outMs != null ? Math.max(130, (st.outMs - st.inMs) * pxPerMs[i]) : 160;
+          free = left + w + 4;
+          g.className = 'gs' + (timed ? ' timed' : '') + (st.state === 'on' ? ' on' : st.state === 'done' ? ' done' : '');
+          g.style.left = Math.round(left) + 'px'; g.style.width = Math.round(w) + 'px';
+          g.textContent = (timed ? `⏱ ${st.inMs / 1000}s ` : 'G ') + st.text;
+          g.title = timed ? `Auto: in at ${st.inMs / 1000}s${st.outMs != null ? `, out at ${st.outMs / 1000}s` : ''}` : 'Manual: press G when this shot is on air';
+          g.onclick = ev => {
+            ev.stopPropagation();
+            if (onAir?.el === i) (st.state === 'on' ? strapOut() : strapIn(i, k));
+            else { cursor = i; render(); cueAhead(); }
+          };
+          laneG.append(g);
+          maxR = Math.max(maxR, left + w);
+        });
+      }
+      laneG.style.width = Math.ceil(maxR) + 'px';
+      track.append(laneG);
+    }
+
+    row.onclick = () => { cursor = s.els[0] ?? cursor; hideSkip(); render(); cueAhead(); };
+    track.scrollLeft = prevScroll[si] || 0;
+    keepInView(track);
+  });
+  $('endText').textContent = 'End of programme' + (off ? ' · ' + clockOf(off.getTime()) : '');
+
+  renderBar();
+  renderScript();
+  renderAtem();
+
+  // strap button
+  const sb = $('btnStrap'), nm = nextManualStrap();
+  if (strapOn) { sb.className = 'ell on'; sb.textContent = 'STRAP OUT  ·  ' + els[strapOn.el].straps[strapOn.k].text; }
+  else if (nm) { sb.className = 'ell'; sb.textContent = 'STRAP IN  ·  ' + els[nm.el].straps[nm.k].text; }
+  else { sb.className = 'ell none'; sb.textContent = 'No strap on this shot'; }
+
+  // players
+  for (const k of ['A', 'B']) {
+    const p = players[k], el = $('p' + k), e = els[p.el];
+    const air = onAir?.player === k;
+    el.className = 'pl' + (air ? ' air' : p.ok ? ' ready' : '');
+    el.querySelector('span').textContent = !e ? 'empty' : `${e.arg} · ${air ? 'ON AIR' : p.busy ? 'cueing…' : p.ok ? 'ready ' + fmt(p.durationMs) : 'MISSING'}`;
+  }
+  renderLive();
+}
+
+/* ---------- small helpers for the rows and the bar ---------- */
+const HINT_TIPS = {
+  'ADD A [CLIP] TAG': 'The format has pictures but the script has no [CLIP] tag. Add one on the desk where the pictures start.',
+  'NOTHING READ OVER OFF CLIP': 'An OFF clip with no words after it: the presenter has nothing to read over the pictures. Put the words after the tag.',
+  'PICTURES SHORT': 'The words read over this OFF VT run past the end of its pictures.',
+  'READ RUNS INTO SOT': 'The words read over the pictures run past the point where the clip sound comes up.',
+};
+let actCells = [];
+function paintAct(si) {
+  const c = actCells[si]; if (!c) return;
+  const a = actOf(si);
+  c.textContent = a == null ? '—' : fmt(a);
+  c.classList.toggle('over', a != null && a > storyDur(si) + 1000);
+}
+const missingLabel = e => (e.type === 'gfx' ? 'GFX' : 'VT') + (e.arg ? ' MISSING' : ' NO FILE');
+/* Is the shot at index i ready to take? { word: READY | CUEING | NOT CUED | …, cls, text } */
+function shotReady(i) {
+  const n = els[i];
+  if (n.type === 'cam') return { word: 'READY', cls: 'ok' };
+  if (isMissing(n)) return { word: missingLabel(n), cls: 'bad', text: n.arg ? `${n.arg} · MISSING — will not take` : 'no file named on the desk — will not take' };
+  if (n.type === 'gfx') {
+    if (n.check?.ok) return { word: 'READY', cls: 'ok', text: `graphic ready · ${n.arg}${gfxLoaded === n.arg ? ' · loaded' : ''}` };
+    return { word: 'NOT CHECKED', cls: 'warn', text: `${n.arg} · not checked` };
+  }
+  const p = Object.values(players).find(p => p.el === i && p.key !== onAir?.player);
+  if (p?.busy || n.state === 'cueing') return { word: 'CUEING', cls: 'warn', text: `cueing ${n.arg}…` };
+  if (p?.ok) return { word: 'READY', cls: 'ok', text: `VT ${p.key} ready · ${n.arg} · ${fmt(p.durationMs)}` };
+  return { word: 'NOT CUED', cls: 'warn', text: `${n.arg} · not cued` };
+}
+function shotName(i, withPlayer) {
+  const e = els[i];
+  if (e.type === 'cam') return `${e.arg.replace(/_/g, ' ')} · presenter`;
+  if (e.type === 'gfx') return `GFX · ${e.arg}`;
+  const k = withPlayer ? (players.A.el === i ? 'A' : players.B.el === i ? 'B' : '') : '';
+  return `VT${k ? ' ' + k : ''} · ${e.arg || 'no file'} · ${e.sound === 'off' ? (e.sotUpMs != null ? 'OFF → SOT' : 'OFF') : 'SOT'}`;
+}
+/* What the presenter does under a VT: for the Next panel. */
+function soundLine(e) {
+  if (e.sound !== 'off') return 'Full sound · mic closed';
+  const pics = e.check?.ok ? ` / ${fmt(e.check.durationMs)} pictures` : '';
+  return `Presenter reads over · ${fmt(e.readMs)} read${pics}` + (e.sotUpMs != null ? ` · sound up at ${fmt(e.sotUpMs)}` : '');
+}
+function whereOf(i) {
+  const e = els[i], s = stories[e.story];
+  return [`Story ${e.story + 1}`, s.title.toUpperCase(), s.format, `item ${s.els.indexOf(i) + 1} of ${s.els.length}`].filter(Boolean).join(' · ');
+}
+
+/* ---------- bottom bar: on air, next ---------- */
+function renderBar() {
+  const air = onAir ? els[onAir.el] : null;
+  $('pAir').className = 'panel p-air' + (air ? '' : ' idle');
+  if (air) {
+    $('airTag').textContent = 'ON AIR';
+    $('airWhere').textContent = whereOf(onAir.el);
+    $('airWhat').textContent = $('airWhat').title = shotName(onAir.el, true);
+  } else {
+    $('airTag').textContent = live ? 'ON AIR' : 'STANDBY';
+    $('airWhere').textContent = live ? 'Off the running order' : 'Nothing on air';
+    $('airWhat').textContent = live ? (lastCam ? `${lastCam.replace(/_/g, ' ')} · presenter` : '—') : 'Black / pre-show';
+  }
+  if (atem.manual) {                         // the screen must never claim the running order is on air
+    $('airTag').textContent = 'ON AIR · MANUAL';
+    $('airWhat').textContent = `ATEM ${atem.name(atem.manual.input)} · cut on the panel`;
+    $('airWhat').title = 'The ATEM was cut on the panel. The running order has not moved: TAKE carries on from the cursor.';
+  }
+  const oc = air?.outCue;
+  $('outWords').textContent = oc ? `“${oc}”` : '—';
+  $('outText').title = oc || '';
+  $('btnRecue').classList.toggle('off', !onAir?.player && !Object.values(players).some(p => p.el === cursor && p.ok));
+
+  const n = els[cursor];
+  $('pNext').className = 'panel p-next' + (n ? '' : ' end');
+  if (!n) {
+    $('nextWhere').textContent = '';
+    $('nextWhat').textContent = 'End of running order'; $('nextWhat').title = '';
+    $('nextState').textContent = 'Nothing left to take.'; $('nextState').className = 'l3 ell';
+    return;
+  }
+  $('nextWhere').textContent = whereOf(cursor);
+  $('nextWhat').textContent = $('nextWhat').title = shotName(cursor, true);
+  const r = shotReady(cursor), st = $('nextState');
+  st.className = 'l3 ell ' + (r.cls === 'ok' && n.type === 'cam' ? '' : r.cls);
+  if (n.type === 'cam') {
+    const parts = [`Read ${fmt(elDur(cursor))}`];
+    if (n.straps.length) parts.push(`${n.straps.length} strap${n.straps.length > 1 ? 's' : ''}`);
+    if (n.outCue) parts.push(`out: “${n.outCue}”`);
+    st.textContent = parts.join(' · ');
+  } else if (n.type === 'vt' && r.cls === 'ok') st.textContent = 'READY · ' + soundLine(n);
+  else st.textContent = r.text;
+}
+
+/* Things that change with the clock: header times, the on-air story's Act, the next hit time. */
+let liveAt = 0;
+function renderLive() {
+  liveAt = performance.now();
+  $('trt').textContent = fmt(totalDur());
+  $('left').textContent = els.length ? fmt(remainingMs()) : '—';
+  const off = offAirDate(), ou = $('overUnder'), now = Date.now();
+  if (!off || !els.length) { ou.textContent = '—'; ou.className = 'ou'; }
+  else {
+    const diff = now + remainingMs() - off.getTime(), a = Math.abs(diff);
+    ou.textContent = a < 2000 ? 'ON TIME' : `${signed(diff)} ${diff > 0 ? 'OVER' : 'UNDER'}`;
+    ou.className = 'ou' + (a < 2000 ? '' : diff > 0 ? ' over' : ' under');
+  }
+  if (live) paintAct(lastStory);
+  // next: when it starts a story, its predicted hit time against the planned one (Front)
+  const n = els[cursor], hit = $('nextHit');
+  if (!n) { hit.textContent = 'Hold on the last shot until off air.'; return; }
+  const s = stories[n.story];
+  if (live && s.els[0] !== cursor) { hit.textContent = 'Same story'; return; }
+  if (!off) { hit.textContent = ''; return; }
+  const back = backTimes()[n.story], planned = off.getTime() - back;
+  const predicted = live ? now + remainingMs() - back : now;
+  const dev = predicted - planned;
+  hit.innerHTML = `hit <span class="mono">${clockOf(predicted)}</span> <span class="${Math.abs(dev) < 2000 ? 'ok' : dev > 0 ? 'bad' : 'ok'}">(${signed(dev)})</span>`;
+}
+
+/* ---------- script panel ---------- */
+let scriptTab = 'air', scriptKey = '';
+$('tabAir').onclick = () => { scriptTab = 'air'; scriptKey = ''; renderScript(); };
+$('tabNext').onclick = () => { scriptTab = 'next'; scriptKey = ''; renderScript(); };
+
+/* setup: the cog opens it (the header stays above it, so the clock and the OBS chip stay readable); Escape, ✕ or a click outside the box closes it. The last tab is remembered. */
+function setup(tab) {
+  const open = !!tab;
+  if (open) {
+    const t = tab === true ? store.get('setupTab', 'obs') : tab;
+    store.set('setupTab', t);
+    document.querySelectorAll('.stabs button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+    document.querySelectorAll('.stab').forEach(p => { p.hidden = p.dataset.tab !== t; });
+  }
+  // start the box below the header, however tall it has wrapped
+  if (open) $('setupWrap').style.paddingTop = Math.max(8, $('hdr').getBoundingClientRect().bottom + 8) + 'px';
+  $('setupWrap').hidden = !open; $('btnSetup').classList.toggle('on', open); $('btnSetup').setAttribute('aria-expanded', String(open));
+}
+$('btnSetup').onclick = () => setup($('setupWrap').hidden ? true : false);
+$('btnSetupClose').onclick = () => setup(false);
+document.querySelectorAll('.stabs button').forEach(b => b.onclick = () => setup(b.dataset.tab));
+$('setupWrap').addEventListener('mousedown', ev => { if (ev.target === $('setupWrap')) setup(false); });
+document.addEventListener('keydown', ev => { if (ev.code === 'Escape' && !$('setupWrap').hidden) setup(false); });
+
+/* format key: the "?" button; Escape or a click elsewhere closes it */
+function keyPop(open) {
+  $('keyPop').hidden = !open; $('btnKey').classList.toggle('on', open); $('btnKey').setAttribute('aria-expanded', String(open));
+}
+$('btnKey').onclick = ev => { ev.stopPropagation(); keyPop($('keyPop').hidden); };
+document.addEventListener('click', ev => { if (!$('keyPop').hidden && !$('keyPop').contains(ev.target)) keyPop(false); });
+document.addEventListener('keydown', ev => { if (ev.code === 'Escape') keyPop(false); });
+function renderScript() {
+  $('tabAir').classList.toggle('on', scriptTab === 'air');
+  $('tabNext').classList.toggle('on', scriptTab === 'next');
+  const airS = onAir ? els[onAir.el]?.story ?? null : null;
+  const nextS = cursor < els.length ? els[cursor].story : null;
+  const si = scriptTab === 'air' ? (airS ?? nextS) : nextS;
+  const s = stories[si];
+  const airShot = s && airS === si ? s.els.indexOf(onAir.el) : -1;
+  const cueShot = s && nextS === si ? s.els.indexOf(cursor) : -1;
+  const key = `${si}|${s?.id}|${s?.script}|${s?.els.join()}|${airShot}|${cueShot}`;
+  if (key === scriptKey) return;                     // unchanged: keep the operator's scroll
+  scriptKey = key;
+  const box = $('script'); box.innerHTML = '';
+  const el = (tag, cls, text) => { const x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
+  if (!s) { box.append(el('div', 'empty', 'Nothing to show.')); return; }
+  const sh = el('div', 'sh');
+  sh.append(el('span', 'ell', `${si + 1} · ${s.title.toUpperCase()}`), el('span', 'mono', [s.format, fmt(storyDur(si))].filter(Boolean).join(' · ')));
+  box.append(sh);
+  if (s.script == null) { box.append(el('div', 'empty', 'No script: this running order was typed into the director, not followed from the desk.')); return; }
+  if (!s.script.trim()) { box.append(el('div', 'empty', 'No script on the desk for this story yet. Timing uses the desk estimate.')); return; }
+
+  const { blocks } = deskWalk(s);
+  // the line each camera shot's out words come from
+  const lastText = new Map();
+  blocks.forEach((b, k) => { if (b.kind === 'text') lastText.set(b.shot, k); });
+  let first = null;
+  blocks.forEach((b, k) => {
+    const d = el('div', 'blk' + (b.over ? ' over' : '') + (b.shot === airShot ? ' now' : b.shot === cueShot ? ' nextshot' : ''));
+    if (b.kind === 'cam') d.append(el('span', 'tag cam', b.label));
+    else if (b.kind === 'strap') d.append(el('span', 'tag strap', 'STRAP ' + b.text));
+    else if (b.kind === 'dir') { if (/^direction$/i.test(b.text)) return; d.append(el('span', 'dir', `[${b.text}]`)); }
+    else if (b.kind === 'clip') {
+      const c = el('div', 'clipbox' + (b.file ? '' : ' nofile'));
+      c.append(el('div', 'mono ell', [b.sotUp ? '▲ SOT UP' : 'CLIP', b.file || 'no file', b.dur, !b.sotUp && b.sound].filter(Boolean).join(' · ')));
+      if (b.sound === 'OFF') c.append(el('div', 'dim', 'Presenter reads the words below over the pictures.'));
+      if (b.lw) c.append(el('div', 'dim', `LW: “${b.lw}”`));
+      else if (b.implied) c.append(el('div', 'dim', 'The format has a clip, but the script has no [CLIP] tag. Add one on the desk where the pictures start.'));
+      d.append(c);
+    } else if (b.kind === 'text') {
+      b.lines.forEach((line, j) => {
+        const p = el('p');
+        if (lastText.get(b.shot) === k && j === b.lines.length - 1) p.append(el('span', 'ow', line)); else p.textContent = line;
+        d.append(p);
+      });
+    }
+    box.append(d);
+    if (first == null && (b.shot === airShot || (airShot < 0 && b.shot === cueShot))) first = d;
+  });
+  if (first) box.scrollTop = Math.max(0, first.offsetTop - 40);
+}
+
+/* header tick: the clock every frame, the rest four times a second */
+function tick() {
+  $('clock').textContent = new Date().toLocaleTimeString('en-GB');
+  if (performance.now() - liveAt > 250) renderLive();
+  $('hdr').classList.toggle('live', live);
+  $('hdrState').textContent = live ? 'ON AIR' : 'STANDBY';
+  countdown.render();
+  requestAnimationFrame(tick);
+}
+
+/* =========================================================================
+   Navigation, load, connect
+   ========================================================================= */
+function move(d) { cursor = Math.max(0, Math.min(els.length - 1, cursor + d)); hideSkip(); render(); cueAhead(); }
+$('btnTake').onclick = take;
+$('btnNext').onclick = () => move(1);
+$('btnPrev').onclick = () => move(-1);
+document.addEventListener('keydown', e => {
+  // F12 takes from anywhere, even a text box: it types nothing, and Chrome would open DevTools.
+  if (e.code === 'F12') { e.preventDefault(); if (!e.repeat) take(); return; }
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  // A focused button would also fire on Space/Enter — keyboard control must never double-take.
+  if (document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
+  if (e.code === 'Space') { e.preventDefault(); take(); }
+  if (e.code === 'KeyG') { e.preventDefault(); strapToggle(); }
+  if (e.code === 'ArrowDown') { e.preventDefault(); move(1); }
+  if (e.code === 'ArrowUp') { e.preventDefault(); move(-1); }
+});
+
+/* a fresh show: nothing on air, cursor at the top */
+function resetShow() {
+  cursor = 0; onAir = null; live = false; lastStory = 0; studio = null; strapOn = null; gfxLoaded = null; cancelStrapTimers();
+  for (const p of Object.values(players)) Object.assign(p, { el: -1, ok: false, durationMs: 0, busy: null });
+  stories.forEach(s => { s.actMs = null; s.actStart = null; });
+  countdown.stop(); hideSkip();
+}
+
+$('btnRoLoad').onclick = async () => {
+  if (feed.room) feedStop('Stopped following the desk: running order loaded from the text box.');
+  parseRO($('roText').value); store.set('roText', $('roText').value);
+  resetShow();
+  log(`Running order loaded: ${stories.length} stories, ${els.length} shots`);
+  render();
+  await checkAll();
+  cueAhead();
+};
+$('btnDemo').onclick = () => { $('roText').value = DEMO_RO; $('btnRoLoad').click(); };
+
+async function renderEnv() {
+  const env = {
+    'Page origin': location.origin || '(file)', 'Secure context': String(window.isSecureContext),
+    'Running inside OBS': window.obsstudio ? 'yes' : 'no',
+    'localStorage': (() => { try { localStorage.setItem('_t', '1'); localStorage.removeItem('_t'); return 'yes'; } catch { return 'NO'; } })(),
+    'Browser': navigator.userAgent.match(/(Chrome|Firefox|Safari)\/[\d.]+/g)?.join(' ') ?? navigator.userAgent, 'OBS': '—',
+  };
+  if (OBS.ready) { try { const v = await OBS.call('GetVersion'); env.OBS = `${v.obsVersion} (ws ${v.obsWebSocketVersion}, ${v.platform})`; } catch {} }
+  $('env').innerHTML = '';
+  for (const [k, v] of Object.entries(env)) { const a = document.createElement('span'); a.textContent = k; const b = document.createElement('span'); b.textContent = v; $('env').append(a, b); }
+  return env;
+}
+$('btnCopyEnv').onclick = async () => {
+  const env = await renderEnv();
+  try { await navigator.clipboard.writeText(Object.entries(env).map(([k, v]) => `${k}: ${v}`).join('\n')); log('Environment report copied'); }
+  catch { log('Clipboard blocked — read it off the panel', 'warn'); }
+};
+
+$('btnConnect').onclick = async () => {
+  try {
+    await OBS.connect($('url').value.trim(), $('pass').value);
+    setObs('ok'); log('Connected to OBS', 'ok');
+    renderEnv();
+    const [{ inputs }, { scenes, currentProgramSceneName }] = await Promise.all([obs('GetInputList', {}, true), obs('GetSceneList', {}, true)]);
+    programScene = currentProgramSceneName;
+    const hi = new Set(inputs.map(i => i.inputName)), hs = new Set(scenes.map(s => s.sceneName));
+    const need = [
+      ...[pInput('A'), pInput('B'), $('probeInput').value.trim(), $('l3Input').value.trim(), gfxInput(), $('gfxProbe').value.trim()].filter(n => !hi.has(n)).map(n => 'input ' + n),
+      ...[pScene('A'), pScene('B'), gfxScene(), $('probeScene').value.trim(), ...els.filter(e => e.type === 'cam').map(e => atemFor(e.arg)?.obs || e.arg)].filter(n => !hs.has(n)).map(n => 'scene ' + n),
+    ];
+    log(need.length ? 'Missing in OBS: ' + [...new Set(need)].join(', ') : 'All expected scenes and inputs found', need.length ? 'bad' : 'ok');
+    setup(false);
+    await checkAll();
+    cueAhead();
+  } catch (e) { setObs('off'); log('Connect failed: ' + e.message, 'bad'); }
+};
+$('btnDisconnect').onclick = () => { OBS.disconnect(); setObs('off'); };
+/* OBS chip in the header; TAKE is greyed out while OBS is not connected */
+function setObs(st) {
+  $('obsChip').className = 'chip' + (st === 'ok' ? '' : ' bad');
+  $('obsText').textContent = st === 'ok' ? 'OBS' : st === 'lost' ? 'OBS DISCONNECTED' : 'OBS NOT CONNECTED';
+  $('btnTake').disabled = st !== 'ok';
+  render();
+}
+OBS.on('closed', () => { setObs('lost'); log('OBS connection lost', 'bad'); countdown.stop('Connection lost'); });
+OBS.on('event', d => { if ($('logEvents').checked) log(`• ${d.eventType} ${short(d.eventData || {})}`, 'dim'); });
+
+/* =========================================================================
+   Studio feed — the newsroom's running order from Supabase, read-only.
+   See docs/director-feed-design.md (local) for the decisions behind it.
+
+   Desk story → director shots. Keep the tag rules in step with parseTag in
+   ../index.html:
+     words outside [tags]          presenter read time, on the current camera
+     [CAM 2] / [CAM2]              switch camera (scene CAM_2) from here on
+     [STRAP: Name | Job]           manual strap (G) on the shot it follows
+     [CLIP … | LW: … | FILE: x]    VT x from the media folder; LW = its out words.
+                                   The last line read before it = the camera's out words.
+     clip-format story, no [CLIP]  a VT with no file: shown, refused on TAKE
+     any other [direction]         for people, not the director: ignored
+   Only stories above END OF PROGRAMME, not floated, not segments.
+
+   While on air (option 3): updates apply to stories the show hasn't reached.
+   The on-air story and the next one are frozen and flagged if the desk changes
+   them; the operator takes the next one's update with its Update button. If the
+   feed drops, the director keeps playing its own copy.
+   ========================================================================= */
+const DESK_TAG_RE = /\[([^\]\n]+)\]/g;
+const DESK_CLIP_FORMATS = new Set(['WRAP', 'CLIP', 'OOV', 'ULAY', 'OOV/CLIP', 'ULAY/CLIP', 'PKG', 'VT']);
+const DESK_OFF_FORMATS = new Set(['OOV', 'ULAY']);   // OFF_FORMATS on the desk: clips default to OFF
+const DESK_DEFAULT_WPM = 120;            // the desk's default read speed
+const OUT_WORDS = 10;
+const oneLine = t => String(t ?? '').replace(/\s+/g, ' ').trim();
+const outWords = line => { const w = oneLine(line).split(' ').filter(Boolean); return (w.length > OUT_WORDS ? '…' : '') + w.slice(-OUT_WORDS).join(' '); };
+
+function deskTag(inner) {
+  const t = inner.trim();
+  let m = /^CLIP\b(?::(\d+):(\d{2}))?\s*([\s\S]*)$/i.exec(t);
+  if (m) {
+    let file = '', lw = '', sound = '';
+    for (const part of m[3].split('|').map(oneLine).filter(Boolean)) {
+      if (/^(SOT|OFF)$/i.test(part)) sound = part.toUpperCase();   // the last one wins, as on the desk
+      else if (/^FILE\b/i.test(part)) file = part.replace(/^FILE\b\s*:?\s*/i, '');
+      else if (/^LW\b/i.test(part)) lw = part.replace(/^LW\b\s*:?\s*/i, '');
+    }
+    if (/^last words$/i.test(lw)) lw = '';            // the + Clip placeholder, never filled in
+    const secs = m[1] != null ? +m[1] * 60 + +m[2] : 0;
+    const dur = secs > 0 ? `${+m[1]}:${m[2]}` : '';
+    return { kind: 'clip', file, lw, dur, secs, sound };
+  }
+  m = /^STRAP\b\s*:?\s*([\s\S]*)$/i.exec(t);
+  if (m) {
+    const parts = m[1].split('|').map(oneLine).filter(p => p && !/^(name|job title)$/i.test(p));
+    return parts.length ? { kind: 'strap', text: parts.join(' | ') } : { kind: 'none' };
+  }
+  m = /^CAM\s*(\d{1,2})$/i.exec(t);                   // strict: [Camera two please] stays a direction
+  if (m) return { kind: 'cam', scene: 'CAM_' + m[1] };
+  return { kind: 'direction' };
+}
+
+/* Walk one desk story's script: the shots it makes, the words read, and the script
+   as blocks for the script panel, each tied to the shot it belongs to (its index
+   among the story's shots, which is the order of the story's els).
+   Sound comes from each clip's SOT/OFF (OOV and ULAY clips default to OFF, as on the desk).
+   Words after an OFF clip, up to the next clip or [CAM n], are read over its pictures: they
+   belong to the VT (its read time and out words) and make no camera shot. An OFF clip followed
+   by a SOT clip of the same file is one VT whose sound comes up at the OFF clip's length. */
+function deskWalk(s, wpm = DESK_DEFAULT_WPM) {
+  const shots = [], blocks = [], warns = [];
+  const format = oneLine(s.format).toUpperCase();
+  let cam = 'CAM_1', cur = null, spoke = false, words = 0, clips = 0;
+  const secsOf = w => Math.round(w * 60 / wpm);
+  const reading = () => cur?.type === 'vt' && cur.sound === 'off' && !cur.closed;   // words go over the pictures
+  const camShot = () => {
+    cur = { type: 'cam', arg: cam, straps: [], out: '' }; shots.push(cur); spoke = false;
+    blocks.push({ kind: 'cam', label: cam.replace(/_/g, ' '), shot: shots.length - 1 });
+  };
+  const said = text => {
+    const lines = text.split('\n').map(oneLine).filter(Boolean);
+    if (!lines.length) return;
+    const n = lines.join(' ').split(' ').length;
+    words += n;
+    if (reading()) { cur.readWords += n; cur.out = outWords(lines[lines.length - 1]); }
+    else {
+      if (!cur || cur.type !== 'cam') camShot();
+      cur.out = outWords(lines[lines.length - 1]);
+      spoke = true;
+    }
+    blocks.push({ kind: 'text', lines, shot: shots.length - 1, over: cur.type === 'vt' });
+  };
+  const script = String(s.script || '');
+  let last = 0;
+  for (const m of script.matchAll(DESK_TAG_RE)) {
+    said(script.slice(last, m.index));
+    last = m.index + m[0].length;
+    const t = deskTag(m[1]);
+    if (t.kind === 'cam') {
+      cam = t.scene;
+      if (cur?.type === 'cam' && !spoke && !cur.straps.length) {
+        cur.arg = cam;
+        const b = blocks.findLast(b => b.kind === 'cam'); if (b) b.label = cam.replace(/_/g, ' ');
+      } else camShot();
+    } else if (t.kind === 'strap') {
+      if (!cur) camShot();
+      cur.straps.push(t.text);
+      blocks.push({ kind: 'strap', text: t.text, shot: shots.length - 1 });
+    } else if (t.kind === 'clip') {
+      clips++;
+      const sound = t.sound || (DESK_OFF_FORMATS.has(format) ? 'OFF' : 'SOT');
+      if (sound === 'SOT' && reading() && cur.arg && t.file === cur.arg) {
+        // OOV/SOT cut as one file: the sound comes up where the OFF part ends
+        cur.sotUp = cur.offSecs || secsOf(cur.readWords);
+        cur.closed = true;
+        if (t.lw) cur.out = t.lw;
+        blocks.push({ kind: 'clip', file: t.file, lw: t.lw, dur: t.dur, sound: 'SOT', sotUp: true, shot: shots.length - 1 });
+        continue;
+      }
+      cur = { type: 'vt', arg: t.file, straps: [], out: t.lw, sound: sound.toLowerCase(), readWords: 0, offSecs: t.secs, sotUp: null, closed: sound === 'SOT' };
+      shots.push(cur);
+      blocks.push({ kind: 'clip', file: t.file, lw: t.lw, dur: t.dur, sound, shot: shots.length - 1 });
+    } else if (t.kind === 'direction') {
+      blocks.push({ kind: 'dir', text: oneLine(m[1]), shot: shots.length - 1 });
+    }
+  }
+  said(script.slice(last));
+  if (!clips && DESK_CLIP_FORMATS.has(format)) {
+    // Andy, 2026-11-23: don't guess where the pictures start; flag it.
+    shots.push({ type: 'vt', arg: '', straps: [], out: '', sound: 'sot', readWords: 0 });
+    blocks.push({ kind: 'clip', file: '', lw: '', dur: '', shot: shots.length - 1, implied: true });
+    warns.push('ADD A [CLIP] TAG');
+  }
+  if (shots.some(sh => sh.sound === 'off' && !sh.readWords)) warns.push('NOTHING READ OVER OFF CLIP');
+  if (!shots.length) camShot();
+  for (const sh of shots) if (sh.sound === 'off') sh.readSecs = secsOf(sh.readWords);
+  return { shots, words, blocks, warns };
+}
+
+/* One desk story → lines of the running-order text format. */
+function deskStoryLines(s, wpm) {
+  const { shots, words } = deskWalk(s, wpm);
+  const mss = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  const out = [`# ${oneLine(s.slug).replace(/@/g, '') || 'UNTITLED'} @${mss(Math.round(words * 60 / wpm))}`];
+  for (const sh of shots) {
+    let line = sh.arg ? `${sh.type} ${sh.arg}` : sh.type;
+    if (sh.sound === 'off') line += ` | off @${mss(sh.readSecs)}${sh.sotUp != null ? ` sotup @${mss(sh.sotUp)}` : ''}`;
+    out.push(line);
+    for (const st of sh.straps) out.push('strap ' + st.replace(/^@+\s*/, ''));   // a leading @ would read as a timed strap
+    if (sh.out) out.push('> ' + sh.out);
+  }
+  return out;
+}
+
+/* A newsroom's bulletin row and story rows → { text, ids, sigs } (one id and
+   signature per story, in order), or { error }. */
+function deskToRO(b, rows) {
+  if (b.kind === 'social') return { error: 'This is a social newsroom: its running order is a social bulletin, not a studio show.' };
+  const byId = new Map((rows || []).map(r => [r.id, r]));
+  const wpm = b.read_speed >= 60 && b.read_speed <= 400 ? b.read_speed : DESK_DEFAULT_WPM;
+  const lines = [`title ${oneLine(b.name || b.id)}`], ids = [], sigs = [], metas = [];
+  for (const id of b.order_ids || []) {
+    if (id === 'marker-line') break;
+    const s = byId.get(id);
+    if (!s || s.is_floated || s.type === 'segment') continue;
+    const block = deskStoryLines(s, wpm);
+    lines.push(...block); ids.push(id); sigs.push(block.join('\n'));
+    // for the format column and the script panel; not part of the text format
+    metas.push({ format: oneLine(s.format).toUpperCase(), script: String(s.script || ''), presenter: oneLine(s.presenter), warns: deskWalk(s, wpm).warns });
+  }
+  return { text: lines.join('\n'), ids, sigs, metas };
+}
+
+/* Merge a fresh desk running order into the one on air.
+   Frozen: stories up to the one on air (or last taken) and the story the cursor is in
+   (unless 'accept' names it: the operator pressed Update). Frozen stories keep their
+   shots, and their indices, exactly; they're flagged if the desk version differs.
+   Everything after is rebuilt from the desk, carrying over what's already known
+   (media checks, cued players, the cursor) shot by shot. */
+function feedMerge({ text, ids, sigs, metas = [] }, accept = null) {
+  const m = parseROModel(text);
+  m.stories.forEach((s, k) => { s.id = ids[k]; s.sig = sigs[k]; s.flag = null; Object.assign(s, metas[k] || {}); });
+  const storyOf = i => els[i]?.story ?? -1;
+  const airStory = live ? Math.max(lastStory, onAir ? storyOf(onAir.el) : -1) : -1;
+  let nextStory = live && cursor < els.length ? storyOf(cursor) : -1;
+  if (accept && stories[nextStory]?.id === accept) nextStory = -1;
+  const F = Math.max(airStory, nextStory);
+  const kept = stories.slice(0, F + 1);
+  const keepEls = kept.reduce((n, s) => n + s.els.length, 0);      // els[0 .. keepEls-1] stay put
+
+  const keptIds = new Set(kept.map(s => s.id).filter(Boolean));
+  for (const s of kept) {
+    if (!s.id) continue;
+    const f = m.stories.find(x => x.id === s.id);
+    // a reworded script counts as a change even when the shots come out the same:
+    // the presenter is reading the new words
+    s.flag = !f ? 'removed' : f.sig !== s.sig || f.script !== s.script || f.format !== s.format ? 'changed' : null;
+  }
+
+  const keyOf = (sid, e, occ) => { const k = `${e.type}|${e.arg}`; occ[k] = (occ[k] || 0) + 1; return `${sid}|${k}|${occ[k]}`; };
+  const oldByKey = new Map();
+  for (let si = F + 1; si < stories.length; si++) {
+    const occ = {};
+    for (const i of stories[si].els) oldByKey.set(keyOf(stories[si].id, els[i], occ), i);
+  }
+  const newStories = kept.slice(), newEls = els.slice(0, keepEls), remap = new Map();
+  for (const s of m.stories) {
+    if (keptIds.has(s.id)) continue;
+    const si = newStories.length, occ = {}, idx = [];
+    for (const j of s.els) {
+      const e = m.els[j];
+      e.story = si;
+      const oi = oldByKey.get(keyOf(s.id, e, occ));
+      if (oi != null) {
+        const o = els[oi];
+        e.check = o.check;
+        if (['checked', 'missing', 'ready'].includes(o.state)) e.state = o.state;
+        remap.set(oi, newEls.length);
+      }
+      idx.push(newEls.length); newEls.push(e);
+    }
+    s.els = idx; newStories.push(s);
+  }
+
+  // players holding a rebuilt shot follow it, or let it go
+  for (const p of Object.values(players)) {
+    if (p.el < keepEls) continue;
+    if (remap.has(p.el)) p.el = remap.get(p.el); else Object.assign(p, { el: -1, ok: false, durationMs: 0 });
+  }
+  const held = new Set(Object.values(players).map(p => p.el));
+  newEls.forEach((e, i) => { if (i >= keepEls && e.state === 'ready' && !held.has(i)) e.state = 'checked'; });
+
+  // the cursor: same shot if it survived, else the top of the same story, else the first rebuilt shot
+  if (accept) {
+    const ns = newStories.find(s => s.id === accept);
+    if (ns?.els.length) cursor = ns.els[0];
+  } else if (cursor >= keepEls) {
+    const oldId = stories[storyOf(cursor)]?.id;
+    if (remap.has(cursor)) cursor = remap.get(cursor);
+    else {
+      const ns = newStories.find((s, k) => k > F && s.id === oldId);
+      cursor = ns?.els.length ? ns.els[0] : keepEls;
+    }
+  }
+  if (strapOn && strapOn.el >= keepEls) strapOn = null;
+
+  title = m.title; stories = newStories; els = newEls;
+  cursor = live ? Math.min(cursor, els.length) : Math.min(cursor, Math.max(0, els.length - 1));
+}
+
+/* The next story can take its desk update; the on-air story can't. */
+function feedCanAccept(si) {
+  if (!live || cursor >= els.length) return false;
+  const airStory = Math.max(lastStory, onAir ? els[onAir.el]?.story ?? -1 : -1);
+  return si > airStory && els[cursor].story === si;
+}
+
+/* ---------- Supabase ---------------------------------------------------- */
+const feed = { room: null, latest: null, ok: null, rt: false, channel: null, poll: null, timer: null, applyTimer: null, fetching: false, again: false };
+let sb = null;
+function feedClient() {
+  if (sb) return sb;
+  const cfg = window.MOIRA_CONFIG;
+  if (!window.supabase?.createClient || !cfg?.supabaseUrl || /YOUR-/.test(cfg.supabaseUrl + cfg.supabaseAnonKey)) return null;
+  // Its own session key, so the director is a separate member from any desk tab on this origin.
+  sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { storageKey: 'moiradir.auth' } });
+  return sb;
+}
+const feedMsg = (t, cls = 'dim') => { $('feedMsg').textContent = t; $('feedMsg').className = cls; };
+
+function renderFeed() {
+  const f = $('feed');
+  f.hidden = !feed.room;
+  if (!feed.room) { f.textContent = ''; return; }
+  const n = stories.filter(s => s.flag).length;
+  const ok = feed.ok !== false;
+  f.className = 'chip' + (ok ? '' : ' warn');
+  f.textContent = (ok ? 'DESK · LIVE' : 'DESK · OFFLINE · playing loaded copy') + (n ? ` · ${n} CHANGED` : '');
+  f.title = !ok ? "Can't reach the desk. Playing the running order already loaded."
+    : feed.rt ? 'Following the desk: updates arrive as they are saved' : 'Following the desk (checking every 30 seconds)';
+}
+
+async function feedSignIn() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) return;
+  const { error } = await sb.auth.signInAnonymously();
+  if (error) throw new Error(`sign-in failed (${error.message}). Are anonymous sign-ins on in Supabase?`);
+}
+
+async function feedRooms(selectId) {
+  const { data, error } = await sb.rpc('my_newsrooms');
+  if (error) throw error;
+  const sel = $('feedRoom'), want = selectId || store.get('feedRoom', '');
+  sel.innerHTML = '';
+  for (const r of data || []) {
+    const o = document.createElement('option'); o.value = r.newsroom_id; o.textContent = r.newsroom_name; sel.append(o);
+  }
+  if ([...sel.options].some(o => o.value === want)) sel.value = want;
+  if (!sel.options.length) feedMsg('Join a newsroom with its code first.');
+  return data || [];
+}
+
+$('btnFeedJoin').onclick = async () => {
+  if (!feedClient()) return feedMsg('The feed needs config.js and supabase-js (internet).', 'bad');
+  const code = $('feedCode').value.trim();
+  if (!code) return feedMsg('Type the newsroom code.', 'warn');
+  try {
+    await feedSignIn();
+    const { data, error } = await sb.rpc('join_newsroom', { p_code: code });
+    if (error) throw error;
+    if (!data?.length) return feedMsg('That code wasn’t recognised.', 'bad');
+    $('feedCode').value = '';
+    await feedRooms(data[0].newsroom_id);
+    feedMsg(`Joined ${data[0].newsroom_name}. Press Follow.`, 'ok');
+  } catch (e) { feedMsg('Join failed: ' + e.message, 'bad'); }
+};
+
+async function feedFetch(room) {
+  const [b, s] = await Promise.all([
+    sb.from('bulletins').select('id, name, kind, order_ids, read_speed').eq('id', room).maybeSingle(),
+    sb.from('stories').select('id, slug, script, format, presenter, is_floated, type').eq('bulletin_id', room),
+  ]);
+  if (b.error || s.error) throw b.error || s.error;
+  if (!b.data) throw new Error('newsroom not found, or this machine is no longer a member (join again with the code)');
+  const r = deskToRO(b.data, s.data);
+  if (r.error) throw new Error(r.error);
+  return r;
+}
+
+async function feedRefresh() {
+  if (!feed.room) return;
+  if (feed.fetching) { feed.again = true; return; }
+  feed.fetching = true;
+  const room = feed.room;
+  try {
+    const r = await feedFetch(room);
+    if (feed.room !== room) return;
+    if (feed.ok === false) log('Desk reachable again', 'ok');
+    feed.ok = true;
+    const same = feed.latest && r.text === feed.latest.text && JSON.stringify(r.metas) === JSON.stringify(feed.latest.metas);
+    if (!same) { const first = !feed.latest; feed.latest = r; feedApply(null, first); }
+  } catch (e) {
+    if (feed.room === room && feed.ok !== false) log(`Desk unreachable: ${e.message}. Playing what is loaded.`, 'warn');
+    if (feed.room === room) feed.ok = false;
+  } finally {
+    feed.fetching = false; renderFeed();
+    if (feed.again) { feed.again = false; feedRefresh(); }
+  }
+}
+function feedSchedule() { clearTimeout(feed.timer); feed.timer = setTimeout(feedRefresh, 500); }
+
+/* Merge only between operations: never mid-TAKE or while a player is cueing (a cue
+   job holds a shot's index). A media check can run on; shareCheck carries its result over. */
+function feedApply(accept = null, first = false) {
+  clearTimeout(feed.applyTimer);
+  if (!feed.latest) return;
+  if (taking || Object.values(players).some(p => p.busy)) { feed.applyTimer = setTimeout(() => feedApply(accept, first), 300); return; }
+  feedMerge(feed.latest, accept);
+  if (first) log(`Running order from the desk: ${stories.length} stories, ${els.length} shots`);
+  render(); renderFeed();
+  const checkNew = () => {
+    if (checking) { setTimeout(checkNew, 300); return; }        // let a running check finish first
+    checkAll(first ? undefined : e => !e.check, !first).then(() => cueAhead());
+  };
+  checkNew();
+}
+function feedAccept(id) { log(`Taking the desk's update for ${stories.find(s => s.id === id)?.title ?? 'story'}`, 'warn'); feedApply(id); }
+
+async function feedFollow(room) {
+  if (!feedClient() || !room) return;
+  if (live) return log('Finish the show before switching to the desk’s running order.', 'warn');
+  feedStop();
+  feed.room = room; store.set('feedRoom', room); store.set('feedFollow', '1');
+  resetShow();
+  feedMsg('Loading…');
+  await feedRefresh();
+  if (feed.room !== room) return;
+  feed.channel = sb.channel('director-' + room)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'stories', filter: `bulletin_id=eq.${room}` }, feedSchedule)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bulletins', filter: `id=eq.${room}` }, feedSchedule)
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') { feed.rt = true; feedSchedule(); }       // catch anything missed while connecting
+      else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) feed.rt = false;
+      renderFeed();
+    });
+  feed.poll = setInterval(feedSchedule, 30000);                              // belt and braces if Realtime drops quietly
+  feedMsg(feed.ok ? `Following ${$('feedRoom').selectedOptions[0]?.textContent ?? room}.` : 'Following, but the desk can’t be reached yet.', feed.ok ? 'ok' : 'warn');
+  renderFeed();
+}
+
+function feedStop(msg) {
+  if (feed.channel) { try { sb.removeChannel(feed.channel); } catch {} }
+  clearInterval(feed.poll); clearTimeout(feed.timer); clearTimeout(feed.applyTimer);
+  Object.assign(feed, { room: null, latest: null, ok: null, rt: false, channel: null, poll: null });
+  store.set('feedFollow', '0');
+  stories.forEach(s => { s.flag = null; });
+  if (msg) { log(msg, 'warn'); feedMsg(msg); }
+  renderFeed(); render();
+}
+
+$('btnFeedFollow').onclick = () => feedFollow($('feedRoom').value);
+$('btnFeedStop').onclick = () => feedStop('Stopped following the desk. The loaded running order stays.');
+
+function feedBoot() {
+  if (!feedClient()) {
+    feedMsg(window.MOIRA_CONFIG ? 'Feed not configured (config.js has placeholders).' : 'No config.js: serve the repo root, not director/ (see director/CLAUDE.md).', 'warn');
+    return;
+  }
+  feedMsg('Signing in…');
+  feedSignIn()
+    .then(() => feedRooms())
+    .then(rooms => {
+      if (rooms.length) feedMsg('Choose a newsroom and press Follow.');
+      const r = store.get('feedRoom', '');
+      if (store.get('feedFollow', '0') === '1' && rooms.some(x => x.newsroom_id === r)) feedFollow(r);
+    })
+    .catch(e => feedMsg('Feed unavailable: ' + e.message, 'bad'));
+}
+
+/* Test hook (tools/test-feed.mjs): read state, and feed a desk running order in
+   without Supabase. Not used by the page itself. */
+window.moiraDirector = {
+  state: () => ({ title, stories, els, cursor, onAir, live, players }),
+  setFrameLuma(fn) { frameLuma = fn; },
+  atem: () => ({ up: atem.up, status: atem.status, pgm: atem.pgm, manual: atem.manual, programScene }),
+  feedInject(data, room = 'test-room') { feed.room = room; feed.ok = true; const first = !feed.latest; feed.latest = data; feedApply(null, first); },
+};
+
+/* ---------- boot ---------------------------------------------------------- */
+if (!$('mediaDir').value) setup('obs');
+parseRO($('roText').value);
+setObs('off'); renderEnv();
+if (atem.on()) atem.connect();
+requestAnimationFrame(tick);
+if (window.supabase?.createClient) feedBoot(); else if (window.MOIRA_CONFIG) {
+  feedMsg('Loading supabase-js…');
+  window.addEventListener('moira-supabase-ready', feedBoot, { once: true });
+} else feedBoot();
+</script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+name: Deploy Moira:Studio (desk and director) to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+# Two jobs, as in GitHub's own Pages template. In one job, Deploy looked for the uploaded files
+# before GitHub had registered them ("No artifacts named github-pages"), on 3 of 5 runs; a re-run
+# always worked. A separate job starts only after the upload's job has finished, and if Deploy
+# still fails, "Re-run failed jobs" repeats only the deploy.
+jobs:
+  build:
+    # Only a public repository can publish to free GitHub Pages: the private development
+    # repository skips this (and so the deploy that needs it).
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read            # configure-pages reads the site settings
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+      - name: Prepare public files
+        run: |
+          mkdir -p _site
+          cp config.js _site/config.js
+          cp index.html _site/index.html
+          cp admin.html _site/admin.html
+          cp tutor.html _site/tutor.html
+          cp desk-shared.js _site/desk-shared.js
+          cp prompt.html _site/prompt.html
+          cp prompt_mob.html _site/prompt_mob.html
+          cp prompt_mob.webmanifest _site/prompt_mob.webmanifest
+          mkdir -p _site/director
+          cp director/director.html _site/director/director.html
+          cp director/Moira_Director_scenes.json _site/director/Moira_Director_scenes.json
+          mkdir -p _site/media
+          cp media/prompter-icon-*.png _site/media/
+          touch _site/.nojekyll
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+      - name: Upload public files only
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

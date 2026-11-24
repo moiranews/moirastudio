@@ -1,0 +1,17 @@
+{
+  "name": "moira-studio-director",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "serve": "cd .. && python3 -m http.server 8080",
+    "bridge": "node bridge/bridge.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.0.0"
+  },
+  "dependencies": {
+    "atem-connection": "^3.11.1",
+    "ws": "^8.23.0"
+  }
+}

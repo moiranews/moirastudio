@@ -1,0 +1,1658 @@
+{
+  "name": "Moira Director",
+  "current_scene": "CAM_1",
+  "current_program_scene": "CAM_1",
+  "scene_order": [
+    {
+      "name": "CAM_1"
+    },
+    {
+      "name": "CAM_2"
+    },
+    {
+      "name": "CAM_3"
+    },
+    {
+      "name": "ATEM_FEED"
+    },
+    {
+      "name": "VT_A"
+    },
+    {
+      "name": "VT_B"
+    },
+    {
+      "name": "GFX"
+    },
+    {
+      "name": "_PROBE"
+    }
+  ],
+  "sources": [
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "CAM_1",
+      "uuid": "a4e7bb64-625e-4ced-91c1-f18729c70273",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_CAM1",
+            "source_uuid": "70732794-f192-46ac-aa47-7ec5879b1fde",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "LABEL_CAM1",
+            "source_uuid": "016f5717-422d-4355-b272-e45301703965",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 80,
+              "y": 60
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "CAM_2",
+      "uuid": "521348f9-4d06-4b8f-bba6-073b5c6a9749",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_CAM2",
+            "source_uuid": "a2143a78-9eaa-48fd-83eb-e523be68372d",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "LABEL_CAM2",
+            "source_uuid": "34b050c6-b569-4002-ba5c-39e9450d9f50",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 80,
+              "y": 60
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "VT_A",
+      "uuid": "ef317697-cc12-4a52-a1e8-62ebf2017496",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_VT",
+            "source_uuid": "592780f0-5ad4-479b-8078-88a96c597c6e",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_VT_A",
+            "source_uuid": "a125d8a0-23db-4727-840d-551ed86f666f",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "VT_B",
+      "uuid": "809ec4af-f108-4b95-9137-cca2805e502c",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_VT",
+            "source_uuid": "592780f0-5ad4-479b-8078-88a96c597c6e",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_VT_B",
+            "source_uuid": "c5dec6db-9b63-46b8-99e2-74c0cbf9694c",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "GFX",
+      "uuid": "1465dea8-f9ea-4e27-ab92-f84e896f5b54",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_VT",
+            "source_uuid": "592780f0-5ad4-479b-8078-88a96c597c6e",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_GFX",
+            "source_uuid": "b266c892-3b30-4ac8-baf7-321fb6a0ee9f",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "_PROBE",
+      "uuid": "b94b9337-e297-49c3-bf74-dda385ffa760",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 4,
+        "items": [
+          {
+            "name": "BG_PROBE",
+            "source_uuid": "e6a5daa9-da9a-4831-a898-21081526f462",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "LABEL_PROBE",
+            "source_uuid": "188cc050-d566-48f7-ad51-f2bff010d0cd",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 80,
+              "y": 60
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_PROBE",
+            "source_uuid": "4d72e2e8-d4af-46ef-bf61-6f36e5316cc7",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_GFX_PROBE",
+            "source_uuid": "b634c599-5e8e-49dc-80b8-b8ab8f2df604",
+            "id": 4,
+            "visible": false,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "BG_CAM1",
+      "uuid": "70732794-f192-46ac-aa47-7ec5879b1fde",
+      "settings": {
+        "color": 4284430878,
+        "width": 1920,
+        "height": 1080
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "BG_CAM2",
+      "uuid": "a2143a78-9eaa-48fd-83eb-e523be68372d",
+      "settings": {
+        "color": 4282015518,
+        "width": 1920,
+        "height": 1080
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "BG_VT",
+      "uuid": "592780f0-5ad4-479b-8078-88a96c597c6e",
+      "settings": {
+        "color": 4278190080,
+        "width": 1920,
+        "height": 1080
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "BG_PROBE",
+      "uuid": "e6a5daa9-da9a-4831-a898-21081526f462",
+      "settings": {
+        "color": 4279505980,
+        "width": 1920,
+        "height": 1080
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "LABEL_CAM1",
+      "uuid": "016f5717-422d-4355-b272-e45301703965",
+      "settings": {
+        "font": {
+          "face": "Helvetica",
+          "size": 160,
+          "style": "Bold",
+          "flags": 1
+        },
+        "text": "CAM 1",
+        "color1": 4294967295,
+        "color2": 4294967295,
+        "outline": true,
+        "drop_shadow": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "LABEL_CAM2",
+      "uuid": "34b050c6-b569-4002-ba5c-39e9450d9f50",
+      "settings": {
+        "font": {
+          "face": "Helvetica",
+          "size": 160,
+          "style": "Bold",
+          "flags": 1
+        },
+        "text": "CAM 2",
+        "color1": 4294967295,
+        "color2": 4294967295,
+        "outline": true,
+        "drop_shadow": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "LABEL_PROBE",
+      "uuid": "188cc050-d566-48f7-ad51-f2bff010d0cd",
+      "settings": {
+        "font": {
+          "face": "Helvetica",
+          "size": 72,
+          "style": "Bold",
+          "flags": 1
+        },
+        "text": "_PROBE \u2014 never put this on air",
+        "color1": 4294967295,
+        "color2": 4294967295,
+        "outline": true,
+        "drop_shadow": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "MOIRA_L3",
+      "uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+      "settings": {
+        "font": {
+          "face": "Helvetica",
+          "size": 72,
+          "style": "Bold",
+          "flags": 1
+        },
+        "text": "",
+        "color1": 4294967295,
+        "color2": 4294967295,
+        "outline": true,
+        "drop_shadow": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "ffmpeg_source",
+      "versioned_id": "ffmpeg_source",
+      "name": "MOIRA_VT_A",
+      "uuid": "a125d8a0-23db-4727-840d-551ed86f666f",
+      "settings": {
+        "is_local_file": true,
+        "local_file": "",
+        "looping": false,
+        "restart_on_activate": false,
+        "close_when_inactive": false,
+        "clear_on_media_end": false,
+        "hw_decode": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 255,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "ffmpeg_source",
+      "versioned_id": "ffmpeg_source",
+      "name": "MOIRA_VT_B",
+      "uuid": "c5dec6db-9b63-46b8-99e2-74c0cbf9694c",
+      "settings": {
+        "is_local_file": true,
+        "local_file": "",
+        "looping": false,
+        "restart_on_activate": false,
+        "close_when_inactive": false,
+        "clear_on_media_end": false,
+        "hw_decode": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 255,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "name": "MOIRA_GFX",
+      "uuid": "b266c892-3b30-4ac8-baf7-321fb6a0ee9f",
+      "settings": {
+        "file": "",
+        "unload": false,
+        "linear_alpha": false
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "image_source",
+      "versioned_id": "image_source",
+      "name": "MOIRA_GFX_PROBE",
+      "uuid": "b634c599-5e8e-49dc-80b8-b8ab8f2df604",
+      "settings": {
+        "file": "",
+        "unload": false,
+        "linear_alpha": false
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "ffmpeg_source",
+      "versioned_id": "ffmpeg_source",
+      "name": "MOIRA_PROBE",
+      "uuid": "4d72e2e8-d4af-46ef-bf61-6f36e5316cc7",
+      "settings": {
+        "is_local_file": true,
+        "local_file": "",
+        "looping": false,
+        "restart_on_activate": false,
+        "close_when_inactive": false,
+        "clear_on_media_end": false,
+        "hw_decode": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 255,
+      "volume": 0.0,
+      "balance": 0.5,
+      "muted": true,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "BG_CAM3",
+      "uuid": "49fa237b-70a5-475e-8177-94facd664ad5",
+      "settings": {
+        "color": 4280957470,
+        "width": 1920,
+        "height": 1080
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "LABEL_CAM3",
+      "uuid": "5081da09-9699-441b-b520-4fb4f673a5da",
+      "settings": {
+        "font": {
+          "face": "Helvetica",
+          "size": 160,
+          "style": "Bold",
+          "flags": 1
+        },
+        "text": "CAM 3",
+        "color1": 4294967295,
+        "color2": 4294967295,
+        "outline": true,
+        "drop_shadow": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "CAM_3",
+      "uuid": "b4eba37c-ce6f-447e-995d-f1e7e65587db",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_CAM3",
+            "source_uuid": "49fa237b-70a5-475e-8177-94facd664ad5",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "LABEL_CAM3",
+            "source_uuid": "5081da09-9699-441b-b520-4fb4f673a5da",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 80,
+              "y": 60
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "color_source",
+      "versioned_id": "color_source_v3",
+      "name": "BG_ATEM",
+      "uuid": "420eb987-fbf2-4a34-8252-c1ab61eeac51",
+      "settings": {
+        "color": 4281998892,
+        "width": 1920,
+        "height": 1080
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "text_ft2_source",
+      "versioned_id": "text_ft2_source_v2",
+      "name": "LABEL_ATEM",
+      "uuid": "e2fecdde-151f-4514-9aba-b5ce92e194b9",
+      "settings": {
+        "font": {
+          "face": "Helvetica",
+          "size": 72,
+          "style": "Bold",
+          "flags": 1
+        },
+        "text": "ATEM FEED\nadd the ATEM's video here,\nbelow MOIRA_L3",
+        "color1": 4294967295,
+        "color2": 4294967295,
+        "outline": true,
+        "drop_shadow": true
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    },
+    {
+      "id": "scene",
+      "versioned_id": "scene",
+      "name": "ATEM_FEED",
+      "uuid": "65f0ab77-cef1-4e03-9655-3085fb8c35fc",
+      "settings": {
+        "custom_size": false,
+        "id_counter": 3,
+        "items": [
+          {
+            "name": "BG_ATEM",
+            "source_uuid": "420eb987-fbf2-4a34-8252-c1ab61eeac51",
+            "id": 1,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "LABEL_ATEM",
+            "source_uuid": "e2fecdde-151f-4514-9aba-b5ce92e194b9",
+            "id": 2,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 80,
+              "y": 60
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          },
+          {
+            "name": "MOIRA_L3",
+            "source_uuid": "92b769fd-ece3-4c27-bea1-651b60a15155",
+            "id": 3,
+            "visible": true,
+            "locked": false,
+            "pos": {
+              "x": 120,
+              "y": 880
+            },
+            "rot": 0.0,
+            "scale": {
+              "x": 1.0,
+              "y": 1.0
+            },
+            "align": 5,
+            "bounds_type": 0,
+            "bounds_align": 0,
+            "bounds": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "crop_left": 0,
+            "crop_top": 0,
+            "crop_right": 0,
+            "crop_bottom": 0,
+            "scale_filter": "disable",
+            "blend_method": "default",
+            "blend_type": "normal",
+            "show_transition": {
+              "duration": 0
+            },
+            "hide_transition": {
+              "duration": 0
+            },
+            "private_settings": {}
+          }
+        ]
+      },
+      "enabled": true,
+      "flags": 0,
+      "mixers": 0,
+      "volume": 1.0,
+      "balance": 0.5,
+      "muted": false,
+      "sync": 0,
+      "monitoring_type": 0,
+      "deinterlace_mode": 0,
+      "deinterlace_field_order": 0,
+      "private_settings": {},
+      "hotkeys": {},
+      "prev_ver": 503447555
+    }
+  ],
+  "groups": [],
+  "transitions": [],
+  "current_transition": "Cut",
+  "transition_duration": 300,
+  "quick_transitions": [
+    {
+      "name": "Cut",
+      "duration": 300,
+      "hotkeys": [],
+      "id": 1,
+      "fade_to_black": false
+    },
+    {
+      "name": "Fade",
+      "duration": 300,
+      "hotkeys": [],
+      "id": 2,
+      "fade_to_black": false
+    }
+  ],
+  "preview_locked": false,
+  "scaling_enabled": false,
+  "scaling_level": 0,
+  "scaling_off_x": 0.0,
+  "scaling_off_y": 0.0,
+  "saved_projectors": [],
+  "modules": {},
+  "resolution": {
+    "x": 1920,
+    "y": 1080
+  },
+  "version": 2
+}

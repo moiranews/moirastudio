@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Moira:Studio Admin</title>
+<script src="config.js"></script>
+<!-- The only external script: pinned, with an integrity check, so a changed file is refused. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"
+        integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o"
+        crossorigin="anonymous"></script>
+<!-- The EP wall, bulletin totals and report page, shared with the tutor desk. -->
+<script src="desk-shared.js"></script>
+<style>
+  :root {
+    --bg: #f1f3f6; --panel: #fff; --ink: #1b1f27; --muted: #667085; --line: #dfe3ea;
+    --accent: #2457d6; --accent-ink: #fff; --ok: #18794e; --ok-bg: #e7f6ee; --warn: #9a5b00; --warn-bg: #fff4e0;
+    --err: #b42318; --err-bg: #fdecea; --chip: #eef1f6; --code-bg: #10141c; --code-ink: #f5f7fb; --tick-bg: #eef3ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151b; --panel: #1b2029; --ink: #e8ebf1; --muted: #97a1b2; --line: #2c3340;
+      --accent: #7aa2ff; --accent-ink: #0d1220; --ok: #5fd39a; --ok-bg: #12301f; --warn: #f0b45a; --warn-bg: #352610;
+      --err: #ff8f84; --err-bg: #3a1714; --chip: #252b36; --code-bg: #0a0d12; --code-ink: #f5f7fb; --tick-bg: #1e2a44;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 18px; }
+  header h1 span { color: var(--accent); }
+  header .spacer { flex: 1; }
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 130px; display: grid; gap: 16px; }
+  main > * { min-width: 0; }
+  .card { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 4px; }
+  input[type=text], input[type=search], input[type=email], input[type=password] { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .row > .grow { flex: 1 1 200px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 6px; padding: 7px 12px; cursor: pointer; white-space: nowrap; }
+  button:hover { filter: brightness(0.97); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button.danger { color: var(--err); }
+  button.small { padding: 4px 8px; font-size: 13px; }
+  a.btn { display: inline-block; font: inherit; border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 6px; padding: 7px 12px; text-decoration: none; white-space: nowrap; }
+  a.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.tutor-code-enabled { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+  .code-toggle { display: inline-flex; align-items: center; gap: 10px; justify-self: start; background: var(--chip); color: var(--muted); }
+  .code-toggle .track { width: 38px; height: 22px; padding: 3px; border-radius: 999px; background: #667085; }
+  .code-toggle .track::after { content: ''; display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .code-toggle[aria-checked="true"] { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+  .code-toggle[aria-checked="true"] .track { background: #18794e; }
+  .code-toggle[aria-checked="true"] .track::after { transform: translateX(16px); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.warn { background: var(--warn-bg); color: var(--warn); }
+  .pill.err { background: var(--err-bg); color: var(--err); }
+  .kind-badge { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .03em; padding: 0 7px; border-radius: 999px; background: var(--chip); color: var(--muted); vertical-align: 1px; margin-left: 6px; }
+  .kind-badge.social { background: #efe7ff; color: #5b21b6; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .kind-badge.social { background: #2b1d4d; color: #c4b5fd; } }
+  :root[data-theme="dark"] .kind-badge.social { background: #2b1d4d; color: #c4b5fd; }
+  .msg { border-radius: 6px; padding: 8px 10px; font-size: 14px; margin-top: 10px; }
+  .msg.err { background: var(--err-bg); color: var(--err); }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .muted { color: var(--muted); }
+  .login { max-width: 380px; margin: 10vh auto; }
+  .login .card { display: grid; gap: 12px; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 0; background: var(--panel); color: var(--ink); width: min(560px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(10, 14, 20, .55); }
+  dialog .head { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  dialog .head h3 { margin: 0; font-size: 17px; }
+  dialog .body { padding: 18px; display: grid; gap: 12px; }
+  dialog .foot { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: flex-end; gap: 8px; }
+  .code-big { background: var(--code-bg); color: var(--code-ink); font: 700 clamp(32px, 8vw, 56px)/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-align: center; padding: 22px 10px; border-radius: 10px; }
+  .fullscreen-code { position: fixed; inset: 0; background: var(--code-bg); color: var(--code-ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; z-index: 100; cursor: pointer; text-align: center; padding: 20px; }
+  .fullscreen-code .name { font-size: 4vw; font-weight: 700; opacity: .8; }
+  .fullscreen-code .code { font: 700 13vw/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+  .fullscreen-code .hint { font-size: 1.6vw; opacity: .6; }
+  .part { width: 100%; text-align: left; display: block; padding: 10px 12px; }
+  .part.selected { outline: 2px solid var(--accent); background: var(--panel); }
+  .part .items { color: var(--muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--ink); }
+  .check input { margin-top: 3px; }
+  select { max-width: 100%; font: inherit; padding: 8px 10px; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; }
+  .folder-group { margin-top: 12px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+  .folder-group:first-child { margin-top: 0; }
+  .folder-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px; background: var(--bg); }
+  .folder-head .folder-toggle { flex: 1 1 180px; text-align: left; white-space: normal; overflow-wrap: anywhere; font-weight: 600; border: 0; background: transparent; }
+  .folder-head .pill { margin-left: 6px; }
+  .folder-empty { margin: 12px; color: var(--muted); }
+  .folder-selection { font-size: 13px; color: var(--accent); }
+  .crown { color: #c58a00; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; overflow-wrap: anywhere; }
+  button.danger-outline { background: transparent; color: var(--err); border-color: var(--err); }
+  button.danger-solid { background: var(--err); border-color: var(--err); color: #fff; }
+  button.link { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: 13px; }
+  .msg .msg-close { float: right; margin: -3px -4px 0 8px; background: transparent; border-color: transparent; color: inherit; }
+
+  /* Newsroom list: toolbar, folder sections and grid rows */
+  .rooms-head { display: flex; gap: 12px 16px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; }
+  .rooms-head h2 { margin: 0 0 4px; }
+  .rooms-head p { margin: 0; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .toolbar input[type=search] { width: 240px; flex: 1 1 180px; }
+  .room-list-wrap { position: relative; overflow-x: auto; border-top: 1px solid var(--line); }
+  .room-list { min-width: 860px; }
+  .rl-row { display: grid; grid-template-columns: 44px minmax(180px, 1.4fr) minmax(170px, 1.2fr) minmax(320px, 1.7fr) 96px; align-items: center; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .rl-row:last-child { border-bottom: 0; }
+  .rl-row > * { min-width: 0; padding: 10px 8px; overflow-wrap: anywhere; }
+  .rl-row.head > * { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding-top: 8px; padding-bottom: 8px; }
+  .rl-row.ticked { background: var(--tick-bg); }
+  .rl-sel { display: flex; justify-content: center; }
+  .rl-sel input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+  .rl-name { display: block; margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); cursor: pointer; }
+  .setup-item { color: var(--muted); white-space: nowrap; }
+  .setup-item.on { color: var(--ok); }
+  .folder-selection { font-size: 13px; color: var(--accent); }
+
+  /* Selection bar, as on the tutor desk */
+  .selbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: #161b24; color: #f5f7fb; border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0, 0, 0, .18); }
+  .selbar:empty { display: none; }
+  .selbar-in { max-width: 1200px; margin: 0 auto; padding: 10px 16px; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+  .selbar .hint { flex: 1 1 260px; color: #c3cad6; }
+  .selbar .names { flex: 1 1 160px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c3cad6; }
+  .selbar .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .selbar button { background: #2a3140; border-color: #3a4252; color: #f5f7fb; }
+  .selbar button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .selbar button.danger-outline { background: transparent; border-color: #ff8f84; color: #ff8f84; }
+  .selbar .divider { width: 1px; align-self: stretch; min-height: 24px; background: #3a4252; }
+
+  /* Tutor access */
+  .card-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .card-head h2 { margin: 0; flex: 1; }
+  .tutor-row { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr) auto; gap: 8px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  @media (max-width: 640px) { .tutor-row { grid-template-columns: minmax(0, 1fr) auto; } .tutor-row .tr-rooms { grid-column: 1 / -1; grid-row: 2; } }
+  .tutor-rooms { border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; max-height: 300px; overflow-y: auto; }
+  .tutor-group { margin: 6px 0 10px; }
+  .tg-head { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+
+  /* Manage panel: outside #app, so it survives render(). Dialogs open above it. */
+  .manage { position: fixed; inset: 0; z-index: 80; }
+  .manage[hidden] { display: none; }
+  .manage-backdrop { position: absolute; inset: 0; background: rgba(10, 14, 20, .45); }
+  .manage-panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0, 0, 0, .18); overflow-y: auto; animation: manage-in .18s ease-out; }
+  @keyframes manage-in { from { transform: translateX(40px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .manage-panel { animation: none; } }
+  .manage-head { position: sticky; top: 0; z-index: 1; background: var(--panel); border-bottom: 1px solid var(--line); padding: 14px 18px; display: flex; gap: 12px; align-items: flex-start; }
+  .manage-head > div { flex: 1; min-width: 0; }
+  .manage-head h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+  .manage-body { padding: 6px 18px 28px; display: grid; gap: 18px; }
+  .m-sec h4 { margin: 10px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .m-line { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .m-k { color: var(--muted); font-size: 13px; }
+  .m-v { min-width: 0; overflow-wrap: anywhere; }
+  .m-b { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+  .m-v a { color: var(--accent); }
+  .m-id { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+  @media (max-width: 520px) { .m-line { grid-template-columns: minmax(0, 1fr) auto; } .m-k { grid-column: 1 / -1; } }
+  .danger-zone { border: 1px solid var(--err); border-radius: 10px; padding: 14px; display: grid; gap: 8px; }
+  .danger-zone h4 { margin: 0; color: var(--err); font-size: 14px; }
+  .danger-zone p { margin: 0; font-size: 13px; color: var(--muted); }
+  .danger-zone button { justify-self: start; }
+  .code-toggle.compact { padding: 4px; gap: 0; }
+
+</style>
+</head>
+<body>
+<div id="app"></div>
+<aside id="manage" class="manage" hidden></aside>
+<dialog id="dlg"></dialog>
+
+<script>
+const SUPABASE_URL = window.MOIRA_CONFIG.supabaseUrl;  // from config.js
+const SUPABASE_ANON_KEY = window.MOIRA_CONFIG.supabaseAnonKey;
+// Optional: the same Turnstile site key as index.html. Needed once CAPTCHA
+// protection is on in Supabase, because it covers password sign-ins too. The
+// widget won't run from a file:// page: serve this folder on localhost (see
+// the README) and add localhost to the widget's hostnames in Cloudflare.
+const TURNSTILE_SITE_KEY = '';
+// ──────────────────────────────────────────────────────────────────────────
+//
+// This page holds no secrets. It signs in with your admin email and password;
+// the database only allows admin actions for accounts listed in `admins`.
+// The session lives in sessionStorage, so closing the tab signs you out, and
+// it never touches the students' (anonymous) session in index.html.
+
+// Everything below needs desk-shared.js. If it didn't load (offline, or a hash
+// that no longer matches the published file), say so rather than half-working.
+if (!window.MoiraDeskShared) {
+  document.getElementById('app').innerHTML = `<div class="login"><div class="card"><h2>Moira:Studio Admin</h2>
+    <p>Couldn't load desk-shared.js. Check your connection and reload.</p></div></div>`;
+  throw new Error('desk-shared.js did not load.');
+}
+
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const configured = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(SUPABASE_URL) && !/YOUR-/.test(SUPABASE_ANON_KEY);
+
+const sb = configured ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storage: window.sessionStorage, storageKey: 'moiradesk-admin-auth', persistSession: true, autoRefreshToken: true },
+}) : null;
+
+const state = { user: null, rooms: [], tutors: [], tutorError: null, loading: false, message: null, loginError: null, loginEmail: '', selected: new Set(), reportScripts: false,
+  reportIds: [], conferenceIds: [], resetIds: [], resetKind: null, manageId: null, manageName: '',
+  folders: [], foldersAvailable: false, folderError: null, folderOpen: new Set(['unfiled']), roomSearch: '' };
+const app = document.getElementById('app');
+const dlg = document.getElementById('dlg');
+const manageEl = document.getElementById('manage');
+
+const when = (t) => t ? new Date(t).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const room = (id) => state.rooms.find((r) => r.newsroom_id === id);
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+function flash(text, tone = 'ok') { state.message = { text, tone }; render(); }
+
+async function rpc(name, args) {
+  const { data, error } = await sb.rpc(name, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+configureDesk({ rpc, conferenceRpc: 'admin_conference', noteRpc: 'set_pitch_note', zoomKey: 'moiradesk-wall-zoom', onWallClose: () => loadRooms() });
+
+// ── Views ──────────────────────────────────────────────────────────────
+
+function render() {
+  if (!configured) {
+    app.innerHTML = `<div class="login"><div class="card"><h2>Moira:Studio Admin</h2>
+      <p>Add your Supabase project URL and publishable key to config.js, then reload.</p></div></div>`;
+    return;
+  }
+  if (!state.user) {
+    app.innerHTML = renderLogin();
+    renderManage();
+    (state.loginEmail ? document.getElementById('password') : document.getElementById('email'))?.focus();
+    return;
+  }
+  if (!document.getElementById('newsroom-groups')) renderShell();
+  renderRooms();
+  renderManage();
+}
+
+// Built once per sign-in, so the search box keeps its focus and cursor while
+// everything around it is redrawn by renderRooms().
+function renderShell() {
+  app.innerHTML = `
+    <header>
+      <h1>Moira:<span>Studio</span> Admin</h1>
+      <span class="spacer"></span>
+      <span class="muted">${esc(state.user.email)}</span>
+      <button data-action="refresh">Refresh</button>
+      <button data-action="sign-out">Sign out</button>
+    </header>
+    <main>
+      <div id="msg"></div>
+      <section class="rooms-head"><div><h2>Newsrooms</h2><p class="muted" id="summary"></p></div>
+        <div class="toolbar"><label for="room-search" class="sr-only">Find a newsroom</label>
+          <input type="search" id="room-search" value="${esc(state.roomSearch)}" placeholder="Find a newsroom" autocomplete="off">
+          <button data-action="new-folder">New folder</button>
+          <button class="primary" data-action="new-room">New newsroom</button></div></section>
+      <div id="folder-error"></div>
+      <div id="newsroom-groups"></div>
+      <section class="card" id="tutors"></section>
+    </main>
+    <div class="selbar" id="selbar"></div>`;
+}
+
+function renderRooms() {
+  const groups = document.getElementById('newsroom-groups');
+  if (!state.user || !groups) return;
+  keepFocus(app, () => {
+    document.getElementById('msg').innerHTML = state.message ? `<div class="msg ${state.message.tone}" role="status"><button class="small msg-close" data-action="dismiss-msg" aria-label="Dismiss">✕</button><span>${esc(state.message.text)}</span></div>` : '';
+    const n = state.rooms.length, students = state.rooms.reduce((t, r) => t + (Number(r.members) || 0), 0), f = state.folders.length;
+    document.getElementById('summary').textContent = n ? `${plural(n, 'newsroom')}${f ? ` in ${plural(f, 'folder')}` : ''} · ${plural(students, 'student')}` : '';
+    document.getElementById('folder-error').innerHTML = state.folderError ? `<p class="msg warn" role="status" style="margin:0">${esc(state.folderError)}</p>` : '';
+    document.querySelector('[data-action="new-folder"]').disabled = !state.foldersAvailable;
+    groups.innerHTML = state.loading && !n ? '<p class="muted">Loading…</p>'
+      : n ? renderNewsroomGroups() : '<p class="muted">No newsrooms yet. Choose <strong>New newsroom</strong> to make one.</p>';
+    document.getElementById('tutors').innerHTML = renderTutors();
+    const ids = tickedIds(), names = ids.map((id) => room(id).name).join(', ');
+    document.getElementById('selbar').innerHTML = !n ? '' : ids.length
+      ? `<div class="selbar-in"><strong>${plural(ids.length, 'newsroom')}</strong><span class="names" title="${esc(names)}">${esc(names)}</span>
+        <span class="acts"><button class="primary" data-action="wall">Open EP wall</button><button data-action="alert">Send alert</button>
+        <button data-action="report-dialog">Report…</button><button data-action="move-selected" ${state.foldersAvailable ? '' : 'disabled'}>Move to folder…</button>
+        <span class="divider" aria-hidden="true"></span><button class="danger-outline" data-action="new-conference-selected">New conference…</button>
+        <button class="danger-outline" data-action="clear-order-selected">Clear running orders…</button>
+        <button class="danger-outline" data-action="reset-selected">Reset…</button>
+        <button data-action="clear-selection">Clear</button></span></div>`
+      : '<div class="selbar-in"><span class="hint">Tick newsrooms to open the EP wall, send an alert, make a report, move them to a folder, start a new conference, clear running orders or reset them for a new group.</span></div>';
+  });
+}
+
+function renderLogin() {
+  return `<div class="login"><form class="card" data-form="login">
+    <h2>Moira:Studio Admin</h2>
+    <div><label for="email">Email</label><input type="email" id="email" autocomplete="username" value="${esc(state.loginEmail || '')}" required></div>
+    <div><label for="password">Password</label><input type="password" id="password" autocomplete="current-password" required></div>
+    ${state.loginError ? `<div class="msg err">${esc(state.loginError)}</div>` : ''}
+    <button class="primary" type="submit">Sign in</button>
+  </form></div>`;
+}
+
+const tutorsFor = (id) => state.tutors.filter((t) => t.newsroom_ids.includes(id));
+const folderOf = (id) => state.folders.find((f) => f.newsroom_ids.includes(id));
+function setupLine(r) {
+  const tutors = tutorsFor(r.newsroom_id).length;
+  const item = (on, label) => `<span class="setup-item${on ? ' on' : ''}"><span aria-hidden="true">${on ? '✓' : '–'}</span> ${label}${on ? '' : '<span class="sr-only"> (none)</span>'}</span>`;
+  return [item(r.has_code, 'Code'), item(tutors, tutors > 1 ? `Tutors ${tutors}` : 'Tutor'),
+    item(r.tutor_code_available === true, 'Tutor code')].join(' · ');
+}
+// TV newsrooms make a programme running order for the studio; social ones plan a social media bulletin. Set at creation, never changed.
+const isSocial = (r) => r?.kind === 'social';
+const kindPill = (r) => `<span class="kind-badge${isSocial(r) ? ' social' : ''}" title="${isSocial(r) ? 'Social media bulletin' : 'TV: a programme running order for the studio'}">${isSocial(r) ? 'SOCIAL' : 'TV'}</span>`;
+const pitchLine = (r) => Number(r.pitches) ? `${plural(Number(r.pitches), 'pitch', 'pitches')} · ${r.picked ?? 0} picked` : 'No pitches yet';
+function renderRows(rooms) {
+  const head = ['<span class="sr-only">Select</span>', 'Newsroom', 'Conference', 'Setup', '<span class="sr-only">Manage</span>'];
+  return `<div class="room-list-wrap"><div class="room-list" role="table" aria-label="Newsrooms">
+    <div class="rl-row head" role="row">${head.map((h) => `<div role="columnheader">${h}</div>`).join('')}</div>
+    ${rooms.map((r) => {
+      const id = esc(r.newsroom_id), on = state.selected.has(r.newsroom_id);
+      return `<div class="rl-row${on ? ' ticked' : ''}" role="row" data-newsroom="${id}">
+        <div class="rl-sel" role="cell"><input type="checkbox" class="sel-room" id="sel-${id}" data-id="${id}" ${on ? 'checked' : ''} aria-label="Select ${esc(r.name)}"></div>
+        <div role="cell"><label class="rl-name" for="sel-${id}">${esc(r.name)}</label>${kindPill(r)}<div class="sub">${plural(Number(r.members) || 0, 'member')}</div></div>
+        <div role="cell">${r.producer_name ? `<span class="crown">♛</span> ${esc(r.producer_name)}` : '<span class="muted">No producer yet</span>'}<div class="sub">${pitchLine(r)}</div></div>
+        <div role="cell" style="font-size:13px">${setupLine(r)}</div>
+        <div role="cell"><button class="small" data-action="manage" data-id="${id}" aria-label="Manage ${esc(r.name)}">Manage</button></div>
+      </div>`;
+    }).join('')}</div></div>`;
+}
+
+// Folder data belongs to the signed-in admin; the disclosure preference stays in this browser.
+function folderPreferenceKey() { return `moiradesk-admin-folders:${SUPABASE_URL}:${state.user.id}`; }
+function rememberFolderOpen() {
+  try { localStorage.setItem(folderPreferenceKey(), JSON.stringify([...state.folderOpen])); } catch {}
+}
+function newsroomGroups() {
+  const assigned = new Set(state.folders.flatMap(f => f.newsroom_ids));
+  return [...state.folders.map(f => ({ ...f, rooms: state.rooms.filter(r => f.newsroom_ids.includes(r.newsroom_id)) })),
+    { id: 'unfiled', name: 'Unfiled', rooms: state.rooms.filter(r => !assigned.has(r.newsroom_id)) }];
+}
+function matchingRooms(rooms) {
+  const q = state.roomSearch.trim().toLocaleLowerCase();
+  return rooms.filter(r => !q || `${r.name} ${r.newsroom_id}`.toLocaleLowerCase().includes(q));
+}
+function renderNewsroomGroups() {
+  const q = state.roomSearch.trim(), search = !!q;
+  const groups = newsroomGroups().map(g => ({ ...g, matches: matchingRooms(g.rooms) }));
+  if (search && !groups.some(g => g.matches.length)) return `<p class="muted" role="status">No newsroom matches ‘${esc(q)}’.</p>`;
+  return groups.filter(g => !search || g.matches.length).map(g => {
+    const ticked = g.rooms.filter(r => state.selected.has(r.newsroom_id)).length;
+    const allOn = g.matches.length && g.matches.every(r => state.selected.has(r.newsroom_id));
+    const open = search || state.folderOpen.has(g.id);
+    return `<section class="folder-group" data-folder="${esc(g.id)}">
+      <div class="folder-head">
+        <button class="folder-toggle" data-action="toggle-folder" data-id="${esc(g.id)}" aria-expanded="${open}" aria-controls="folder-body-${esc(g.id)}" ${search ? 'disabled' : ''}>
+          <span aria-hidden="true">${open ? '▾' : '▸'}</span> ${esc(g.name)} <span class="pill">${search ? `${g.matches.length} of ` : ''}${g.rooms.length}</span>
+        </button>
+        ${ticked ? `<span class="folder-selection">${ticked} ticked</span>` : ''}
+        <button class="small" data-action="tick-folder" data-id="${esc(g.id)}" aria-label="${allOn ? 'Untick' : 'Tick'} folder ${esc(g.name)}" ${g.matches.length ? '' : 'disabled'}>${allOn ? 'Untick folder' : 'Tick folder'}</button>
+        ${g.id !== 'unfiled' ? `<button class="small" data-action="rename-folder" data-id="${esc(g.id)}" aria-label="Rename folder ${esc(g.name)}">Rename</button>
+          <button class="small" data-action="remove-folder" data-id="${esc(g.id)}" aria-label="Remove folder ${esc(g.name)}">Remove folder</button>` : ''}
+      </div><div id="folder-body-${esc(g.id)}" ${open ? '' : 'hidden'}>${open ? (g.matches.length ? renderRows(g.matches) : '<p class="folder-empty">No newsrooms here yet. Tick some and choose “Move to folder…”, or use Move in a newsroom’s Manage panel.</p>') : ''}</div>
+    </section>`;
+  }).join('');
+}
+function folderDialog(id = null) {
+  const folder = state.folders.find(f => f.id === id);
+  openDialog(folder ? 'Rename folder' : 'New folder', `<form data-form="folder" data-id="${esc(id || '')}" id="folder-form">
+    <label for="folder-name">Folder name</label><input type="text" id="folder-name" maxlength="60" value="${esc(folder?.name || '')}" placeholder="e.g. Year 2 · Autumn 2026" required>
+    </form>`, '<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="folder-form">Save folder</button>');
+  document.getElementById('folder-name').focus();
+}
+let folderMoveIds = [];
+function moveFolderDialog(ids) {
+  folderMoveIds = ids.filter(id => room(id));
+  if (!folderMoveIds.length) return;
+  const current = folderMoveIds.length === 1 ? state.folders.find(f => f.newsroom_ids.includes(folderMoveIds[0]))?.id : '';
+  openDialog('Move newsrooms', `<p style="margin:0">Move ${folderMoveIds.length} newsroom${folderMoveIds.length === 1 ? '' : 's'}:</p>
+    <ul style="max-height:160px;overflow:auto;margin:0;padding-left:22px">${folderMoveIds.map(id => `<li>${esc(room(id).name)}</li>`).join('')}</ul>
+    <form data-form="move-folder" id="move-folder-form"><label for="move-folder">Destination</label>
+      <select id="move-folder" style="width:100%"><option value="">Unfiled</option>${state.folders.map(f => `<option value="${esc(f.id)}" ${f.id === current ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>
+    </form>`, '<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="move-folder-form">Move newsrooms</button>');
+}
+function removeFolderDialog(id) {
+  const f = state.folders.find(f => f.id === id); if (!f) return;
+  openDialog(`Remove folder: ${f.name}`, `<p>Its newsrooms will return to Unfiled. No newsrooms, stories or access permissions will be deleted.</p>
+    <form id="remove-folder-form" data-form="remove-folder" data-id="${esc(id)}"></form>`,
+    '<button data-action="close-dialog">Cancel</button><button type="submit" form="remove-folder-form">Remove folder</button>');
+}
+async function refreshFolders() {
+  const user = state.user;
+  const folders = await rpc('get_admin_folders') || [];
+  if (state.user !== user) return;
+  state.folders = folders; state.foldersAvailable = true; state.folderError = null;
+}
+
+// ── Dialogs ────────────────────────────────────────────────────────────
+
+function alertDialog() {
+  const ids = tickedIds();
+  if (!ids.length) return;
+  openDialog('Send EP broadcast alert', `<p style="margin:0">To ${ids.length} selected newsroom${ids.length === 1 ? '' : 's'}:</p>
+    <ul style="margin:0;padding-left:20px;max-height:140px;overflow:auto">${ids.map(id => `<li>${esc(state.rooms.find(r => r.newsroom_id === id)?.name || id)}</li>`).join('')}</ul>
+    <form data-form="alert" id="alert-form">
+      <label for="alert-message">Message</label><input type="text" id="alert-message" maxlength="240" placeholder="e.g. Everyone back to the newsroom in 5 mins" required autocomplete="off">
+    </form>`, '<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="alert-form">Send to selected newsrooms</button>');
+  document.getElementById('alert-message').focus();
+}
+async function sendBroadcastAlert() {
+  const p_message = document.getElementById('alert-message').value.trim();
+  if (!p_message) throw new Error('Enter an alert message.');
+  const ids = tickedIds();
+  if (!ids.length) throw new Error('Select at least one newsroom.');
+  await rpc('tutor_send_alert', { p_newsroom_ids: ids, p_message });
+  closeDialog(); flash('Alert sent.');
+}
+
+function openDialog(title, body, foot) {
+  dlg.innerHTML = `<div class="head"><h3>${esc(title)}</h3><button class="small" data-action="close-dialog" aria-label="Close">✕</button></div>
+    <div class="body">${body}</div>${foot ? `<div class="foot">${foot}</div>` : ''}`;
+  if (!dlg.open) dlg.showModal();
+}
+function closeDialog() { if (dlg.open) dlg.close(); }
+
+function showCode(name, code) {
+  openDialog(`Join code: ${name}`, `
+    <div class="code-big" id="code-text">${esc(code)}</div>
+    <p class="muted" style="margin:0">Shown once. Students enter it on their first visit (case, spaces and dashes don't matter). Lost it? Make a new one.</p>`,
+    `<button data-action="copy-code" data-code="${esc(code)}">Copy</button>
+     <button data-action="fullscreen-code" data-code="${esc(code)}" data-name="${esc(name)}">Show full screen</button>
+     <button class="primary" data-action="close-dialog">Done</button>`);
+}
+
+// A modal dialog sits in the browser's top layer, above everything else, so
+// close it while the full-screen code is up and bring it back afterwards.
+function showFullscreen(name, code) {
+  closeDialog();
+  const el = document.createElement('div');
+  el.className = 'fullscreen-code';
+  el.innerHTML = `<div class="name">${esc(name)}</div><div class="code">${esc(code)}</div><div class="hint">Open Moira:Desk and enter this code · click to close</div>`;
+  el.addEventListener('click', () => {
+    el.remove();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    showCode(name, code);
+  });
+  document.body.appendChild(el);
+  el.requestFullscreen?.().catch(() => {});
+}
+
+// ── Tutor access ────────────────────────────────────────────────────────
+function renderTutors() {
+  const byText = (a, b) => a.localeCompare(b, 'en-GB', { sensitivity: 'base', numeric: true });
+  return `<div class="card-head"><h2>Tutor access</h2>
+      <a class="btn" href="tutor.html" target="_blank" rel="noopener">Open tutor desk</a>
+      <button class="primary" data-action="add-tutor" ${state.tutorError ? 'disabled' : ''}>Assign a tutor</button></div>
+    <p class="muted" style="margin:0 0 8px;font-size:14px">Tutors can view assigned newsrooms, open the EP wall, add notes, generate reports and show a separate student join code. They cannot manage newsrooms or Cuez targets.</p>
+    ${state.tutorError ? `<p class="msg warn">${esc(state.tutorError)}</p>` : state.tutors.length ? state.tutors.map(t => `<div class="tutor-row">
+      <div>${esc(t.email)}</div>
+      <div class="tr-rooms">${t.newsroom_ids.map(id => room(id)?.name || id).sort(byText).map(esc).join(', ') || '<span class="muted">None assigned</span>'}</div>
+      <div><button class="small" data-action="edit-tutor" data-id="${esc(t.user_id)}" aria-label="Edit access for ${esc(t.email)}">Edit access</button></div>
+    </div>`).join('') : '<p class="muted" style="margin:0">No tutors assigned yet.</p>'}`;
+}
+
+function tutorDialog(id) {
+  const tutor = state.tutors.find(t => t.user_id === id);
+  const groups = newsroomGroups().filter(g => g.rooms.length);
+  openDialog(tutor ? 'Edit tutor access' : 'Assign a tutor', `<form data-form="tutor" id="tutor-form" style="display:grid;gap:12px">
+    <div><label for="tutor-email">Staff email</label><input type="email" id="tutor-email" value="${esc(tutor?.email || '')}" ${tutor ? 'readonly' : ''} autocomplete="off" required></div>
+    <p class="muted" style="margin:0">The colleague needs a confirmed email/password account in Supabase Authentication first. Select the newsrooms they may supervise.</p>
+    <fieldset class="tutor-rooms"><legend>Assigned newsrooms</legend>
+      ${state.rooms.length > 12 ? '<label for="tutor-filter" class="sr-only">Filter newsrooms</label><input type="search" id="tutor-filter" placeholder="Filter newsrooms" autocomplete="off" style="margin:4px 0 6px">' : ''}
+      ${groups.map(g => `<div class="tutor-group" data-group="${esc(g.id)}"><div class="tg-head"><span>${esc(g.name)}</span>
+          <button type="button" class="link" data-action="tutor-tick-all" data-id="${esc(g.id)}" aria-label="Tick all in ${esc(g.name)}">Tick all</button></div>
+        ${g.rooms.map(r => `<label class="check"><input type="checkbox" name="tutor-room" value="${esc(r.newsroom_id)}" ${tutor?.newsroom_ids.includes(r.newsroom_id) ? 'checked' : ''}>${esc(r.name)}</label>`).join('')}</div>`).join('') || '<p>No newsrooms available.</p>'}
+    </fieldset>
+    <label class="check"><input type="checkbox" id="tutor-enable-codes" ${tutor ? '' : 'checked'}> <span>Turn on a tutor join code for these newsrooms if it's off</span></label>
+    </form>`, `${tutor ? `<button class="danger" data-action="remove-tutor" data-id="${esc(tutor.user_id)}" style="margin-right:auto">Remove tutor</button>
+      <button data-action="tutor-codes" data-id="${esc(tutor.user_id)}" ${tutor.newsroom_ids.length ? '' : 'disabled'}>Join codes</button>` : ''}
+    <button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="tutor-form">Save access</button>`);
+}
+// Which tutors can supervise one newsroom, from its Manage panel.
+function roomTutorsDialog(id) {
+  const r = room(id); if (!r) return;
+  openDialog(`Tutors for ${r.name}`, state.tutors.length ? `<form data-form="room-tutors" data-id="${esc(id)}" id="room-tutors-form">
+      <fieldset class="tutor-rooms"><legend>Tutors who can supervise this newsroom</legend>${state.tutors.map(t => `<label class="check">
+        <input type="checkbox" name="room-tutor" value="${esc(t.user_id)}" ${t.newsroom_ids.includes(id) ? 'checked' : ''}>${esc(t.email)}</label>`).join('')}</fieldset></form>`
+    : '<p style="margin:0">No tutors yet. Use <strong>Assign a tutor</strong> under Tutor access to add one.</p>',
+    `<button data-action="close-dialog">Cancel</button>${state.tutors.length ? '<button class="primary" type="submit" form="room-tutors-form">Save tutors</button>' : ''}`);
+}
+function tutorCodesDialog(email, ids) {
+  const rooms = ids.map(id => room(id)).filter(Boolean);
+  openDialog(`Join codes for ${email}`, `<p>Choose a newsroom to enable or view its tutor join code. All tutors assigned to that newsroom can show the same code to students.</p>
+    <div style="display:grid;gap:8px">${rooms.map(r => `<button data-action="tutor-code" data-id="${esc(r.newsroom_id)}">${esc(r.name)} — set up or view code</button>`).join('') || '<p>No newsrooms assigned.</p>'}</div>
+    <p class="muted">Tutors see a Join code button once a code is on. Their desk picks it up within 30 seconds. Existing codes stay unchanged unless you choose to replace them.</p>`,
+    '<button data-action="close-dialog">Done</button>');
+}
+async function tutorCodeDialog(id) {
+  const r = room(id); if (!r) return;
+  const code = await rpc('get_tutor_join_code', { p_newsroom_id: id });
+  r.tutor_code_available = !!code;
+  render();
+  openDialog(`Tutor join code: ${r.name}`, `<button class="code-toggle" role="switch" aria-label="Tutor code" aria-checked="${!!code}" data-action="toggle-tutor-code" data-id="${esc(id)}">
+      <span class="track" aria-hidden="true"></span><span>Tutor code ${code ? 'enabled' : 'disabled'}</span></button>
+    ${code ? `<div class="code-big" id="code-text">${esc(code)}</div>` : '<p>No tutor join code is enabled for this newsroom.</p>'}
+    <p class="muted">Assigned tutors can show this separate code to students. Turning it off stops new joins with this code; students already in the newsroom stay. Turning it back on generates a new code. Changing the main newsroom code also turns it off.</p>`,
+    `${code ? `<button data-action="copy-code" data-code="${esc(code)}">Copy</button><button data-action="rotate-tutor-code" data-id="${esc(id)}">New tutor code</button>` : ''}
+     <button data-action="close-dialog">Done</button>`);
+}
+
+function codeDialog(id) {
+  const r = room(id);
+  openDialog(`${r.has_code ? 'New code' : 'Set code'}: ${r.name}`, `
+    <p class="muted">Changing the main code also disables any tutor join code for this newsroom.</p>
+    <form data-form="code" data-id="${esc(id)}" id="code-form" style="display:grid;gap:12px">
+      <div><label for="code-custom">Code (optional)</label><input type="text" id="code-custom" maxlength="20" placeholder="Leave blank to generate" autocomplete="off"></div>
+      <label class="check"><input type="checkbox" id="code-kick" ${r.members ? 'checked' : ''}>
+        <span>Remove the ${r.members} current member${r.members === 1 ? '' : 's'}, so they need the new code. Untick to change the code for newcomers only.</span></label>
+    </form>`,
+    `<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="code-form">Make code</button>`);
+}
+
+function renameDialog(id) {
+  const r = room(id);
+  openDialog(`Rename: ${r.name}`, `
+    <form data-form="rename" data-id="${esc(id)}" id="rename-form">
+      <label for="rename-name">Name</label><input type="text" id="rename-name" maxlength="60" value="${esc(r.name)}" required>
+    </form><p class="muted" style="margin:0;font-size:13px">The ID (${esc(id)}) stays the same.</p>`,
+    `<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="rename-form">Rename</button>`);
+  setTimeout(() => document.getElementById('rename-name')?.select(), 30);
+}
+
+function deleteDialog(id) {
+  const r = room(id);
+  openDialog(`Delete: ${r.name}`, `
+    <div class="msg err" style="margin:0">Deletes the newsroom, its ${r.stories} stor${r.stories === 1 ? 'y' : 'ies'}, its code and all memberships. This can't be undone.</div>
+    <form data-form="delete" data-id="${esc(id)}" id="delete-form">
+      <label for="delete-confirm">Type <strong>${esc(r.name)}</strong> to confirm</label>
+      <input type="text" id="delete-confirm" autocomplete="off" required>
+    </form>`,
+    `<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="delete-form" style="background:var(--err);border-color:var(--err)">Delete newsroom</button>`);
+}
+
+function newRoomDialog() {
+  const openFolder = state.folders.find(f => state.folderOpen.has(f.id))?.id || '';
+  openDialog('New newsroom', `<form data-form="create" id="create-form" style="display:grid;gap:12px">
+      <div><label for="new-name">Name</label><input type="text" id="new-name" maxlength="60" placeholder="e.g. Newsday Blue" required></div>
+      <div><label for="new-code">Code (optional)</label><input type="text" id="new-code" maxlength="20" placeholder="Leave blank to generate" autocomplete="off"></div>
+      <fieldset class="tutor-rooms"><legend>Type</legend>
+        <label class="check"><input type="radio" name="new-kind" value="tv" checked> <span><strong>TV</strong>: a programme running order for the studio</span></label>
+        <label class="check"><input type="radio" name="new-kind" value="social"> <span><strong>Social</strong>: a social media bulletin, planned shot by shot. Starts with an intro and outro</span></label>
+        <p class="muted" style="margin:4px 0 0;font-size:13px">The type can't be changed later, even by a reset.</p>
+      </fieldset>
+      ${state.foldersAvailable && state.folders.length ? `<div><label for="new-room-folder">Folder (optional)</label><select id="new-room-folder" style="width:100%">
+        <option value="">Unfiled</option>${state.folders.map(f => `<option value="${esc(f.id)}" ${f.id === openFolder ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select></div>` : ''}
+    </form>
+    <p class="muted" style="margin:0;font-size:13px">Generated codes are random and hard to guess. A code is shown once: it's stored only as a hash, so write it down or show it to the class straight away.</p>`,
+    '<button data-action="close-dialog">Cancel</button><button class="primary" type="submit" form="create-form">Create</button>');
+  document.getElementById('new-name').focus();
+}
+
+const nameList = (ids) => `<ul style="margin:0;padding-left:20px;max-height:160px;overflow:auto">${ids.map((id) => `<li>${esc(room(id).name)}</li>`).join('')}</ul>`;
+function reportDialog(ids, scripts = state.reportScripts) {
+  ids = ids.filter((id) => room(id));
+  if (!ids.length) return;
+  state.reportIds = ids;
+  openDialog(ids.length === 1 ? `Report: ${room(ids[0]).name}` : `Report on ${ids.length} newsrooms`, `<p style="margin:0">Covers:</p>${nameList(ids)}
+    <label class="check" style="margin:0"><input type="checkbox" id="report-scripts" ${scripts ? 'checked' : ''}> <span>Include scripts</span></label>
+    <p class="muted" style="margin:0;font-size:13px">A PDF for each newsroom (in one ZIP when there are several) and an overview page of them all: a snapshot of the current conference and running order.</p>`,
+    '<button data-action="close-dialog">Cancel</button><button class="primary" data-action="report-generate">Generate</button>');
+}
+function conferenceDialog(ids) {
+  ids = ids.filter((id) => room(id));
+  if (!ids.length) return;
+  state.conferenceIds = ids;
+  openDialog(ids.length === 1 ? 'Start a new conference' : `Start a new conference for ${ids.length} newsrooms`, `<p style="margin:0">This clears the board for:</p>${nameList(ids)}
+    <p style="margin:0">It clears the conference board and frees the producer role. Earlier pitches and EP feedback are kept, read-only, but drop out of the board and the report, so generate a report first if you want a record. Running orders are untouched.</p>`,
+    `<button data-action="close-dialog">Cancel</button><button data-action="conference-report">Make a report first</button>
+     <button class="danger-solid" data-action="start-conference">Start new conference</button>`);
+}
+
+// Clearing a running order, or resetting a newsroom for a new group.
+const RESETS = {
+  order: {
+    title: (n) => n === 1 ? 'Clear the running order' : `Clear the running order for ${n} newsrooms`,
+    body: `<p style="margin:0">It deletes every story and script, leaving an empty running order. Picked pitches go back on the board as undecided; the producer, conference and members are untouched.</p>
+      <p style="margin:0">Anyone editing a story loses unsaved text, and deleted stories can't be restored. Generate a report with scripts first if you want a record.</p>`,
+    button: 'Clear running order', rpc: 'clear_running_order',
+    done: (names) => `Cleared the running order for ${names}.`,
+  },
+  all: {
+    title: (n) => n === 1 ? 'Reset for a new group' : `Reset ${n} newsrooms for a new group`,
+    body: `<p style="margin:0">It starts a new conference, frees the producer role, deletes every story and script, removes all members and clears the EP alert.</p>
+      <p style="margin:0">The name, join codes, tutors and folder stay. Old members can rejoin with the same code, so set a new code if that matters. Earlier pitches and EP feedback are kept, read-only, but drop out of the board and the report. Generate a report first if you want a record: this can't be undone.</p>`,
+    button: 'Reset newsroom', rpc: 'reset_newsroom',
+    done: (names) => `Reset ${names} for a new group.`,
+  },
+};
+function resetDialog(kind, ids) {
+  ids = ids.filter((id) => room(id));
+  if (!ids.length) return;
+  const k = RESETS[kind];
+  state.resetKind = kind; state.resetIds = ids;
+  openDialog(k.title(ids.length), `<p style="margin:0">This applies to:</p>${nameList(ids)}${k.body}`,
+    `<button data-action="close-dialog">Cancel</button><button data-action="reset-report">Make a report first</button>
+     <button class="danger-solid" data-action="confirm-reset">${k.button}${ids.length === 1 ? '' : 's'}</button>`);
+}
+
+// ── Manage panel ───────────────────────────────────────────────────────
+// Lives outside #app, so render() redraws it rather than removing it. The page
+// behind is inert while it is open; dialogs open above it in the top layer.
+
+function openManage(id) {
+  const r = room(id); if (!r) return;
+  state.manageId = id; state.manageName = r.name;
+  manageEl.innerHTML = `<div class="manage-backdrop" data-action="close-manage"></div>
+    <div class="manage-panel" role="dialog" aria-modal="true" aria-labelledby="manage-title"><div class="manage-head"></div><div class="manage-body"></div></div>`;
+  renderManage();
+  manageEl.querySelector('.manage-head [data-action="close-manage"]')?.focus();
+}
+function closeManage(returnFocus = true) {
+  const id = state.manageId;
+  state.manageId = null;
+  renderManage();
+  if (returnFocus && id) app.querySelector(`[data-action="manage"][data-id="${CSS.escape(id)}"]`)?.focus();
+}
+function renderManage() {
+  const r = state.user && state.manageId && room(state.manageId);
+  if (!r) { manageEl.hidden = true; manageEl.innerHTML = ''; app.inert = false; return; }
+  state.manageName = r.name;
+  manageEl.hidden = false; app.inert = true;
+  const id = esc(r.newsroom_id), members = Number(r.members) || 0, tutors = tutorsFor(r.newsroom_id).map((t) => t.email);
+  const line = (k, v, b = '') => `<div class="m-line"><div class="m-k">${k}</div><div class="m-v">${v}</div><div class="m-b">${b}</div></div>`;
+  const codeDate = r.code_updated_at ? ` ${new Date(r.code_updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : '';
+  const tc = r.tutor_code_available;
+  keepFocus(manageEl, () => {
+    manageEl.querySelector('.manage-head').innerHTML = `<div><h3 id="manage-title">${esc(r.name)}</h3>
+      <div class="sub">${isSocial(r) ? 'Social' : 'TV'} · ${plural(members, 'member')} · ${esc(folderOf(r.newsroom_id)?.name || 'Unfiled')}</div></div>
+      <button class="small" data-action="close-manage" aria-label="Close">✕</button>`;
+    manageEl.querySelector('.manage-body').innerHTML = `
+      <section class="m-sec"><h4>Session</h4>
+        ${line('Producer', r.producer_name ? `<span class="crown">♛</span> ${esc(r.producer_name)}` : '<span class="muted">No producer claimed</span>',
+          `<button class="small" data-action="clear-producer" data-id="${id}" ${r.producer_name ? '' : 'disabled'}>Clear producer</button>`)}
+        ${line('Conference', pitchLine(r), `<button class="small danger-outline" data-action="new-conference" data-id="${id}">New conference…</button>`)}
+        ${line('Running order', `${plural(Number(r.stories) || 0, 'story', 'stories')}`,
+          `<button class="small danger-outline" data-action="clear-order" data-id="${id}">Clear running order…</button>`)}
+        ${line('Members', `${plural(members, 'member')} joined`, `<button class="small danger-outline" data-action="kick" data-id="${id}" ${members ? '' : 'disabled'}>Remove members…</button>`)}
+      </section>
+      <section class="m-sec"><h4>Access</h4>
+        ${line('Main join code', r.has_code ? `Set${esc(codeDate)} · shown once, stored as a hash` : '<span class="muted">No code set</span>',
+          `<button class="small" data-action="code" data-id="${id}">${r.has_code ? 'New code…' : 'Set code…'}</button>`)}
+        ${line('Tutor join code', tc === true ? 'On · assigned tutors can show it' : tc === false ? 'Off' : '<span class="muted">Status unavailable</span>',
+          `${tc ? `<button class="small" data-action="tutor-code" data-id="${id}">Show</button>` : ''}
+          <button class="code-toggle compact" role="switch" aria-checked="${tc === true}" aria-label="Tutor join code" data-action="toggle-tutor-code" data-id="${id}" ${tc === undefined ? 'disabled' : ''}><span class="track" aria-hidden="true"></span></button>`)}
+        ${line('Tutors', tutors.length ? tutors.map(esc).join(', ') : '<span class="muted">None assigned</span>',
+          `<button class="small" data-action="room-tutors" data-id="${id}" ${state.tutorError ? 'disabled' : ''}>Edit</button>`)}
+      </section>
+      <section class="m-sec"><h4>Housekeeping</h4>
+        ${line('Name', esc(r.name), `<button class="small" data-action="rename" data-id="${id}">Rename</button>`)}
+        ${line('Type', isSocial(r) ? 'Social: a social media bulletin' : 'TV: a programme running order for the studio', '<span class="muted" style="font-size:13px">Set when created</span>')}
+        ${line('Folder', esc(folderOf(r.newsroom_id)?.name || 'Unfiled'), `<button class="small" data-action="move-room" data-id="${id}" ${state.foldersAvailable ? '' : 'disabled'}>Move</button>`)}
+        <p class="m-id">Newsroom ID: <span class="mono">${id}</span></p>
+      </section>
+      <section class="danger-zone"><h4>Reset for a new group</h4>
+        <p>Starts a new conference, frees the producer, empties the running order${isSocial(r) ? ' (back to just the intro and outro)' : ''}, removes members and clears the EP alert. Keeps the name, type, codes and tutors.</p>
+        <button class="danger-outline" data-action="reset-room" data-id="${id}">Reset newsroom…</button>
+      </section>
+      <section class="danger-zone"><h4>Delete this newsroom</h4>
+        <p>Removes its stories, code and memberships. This can't be undone.</p>
+        <button class="danger-solid" data-action="delete" data-id="${id}">Delete newsroom…</button>
+      </section>`;
+  });
+}
+
+// ── EP wall (desk-shared.js) ───────────────────────────────────────────
+
+function tickedIds() { return state.rooms.map((r) => r.newsroom_id).filter((id) => state.selected.has(id)); }
+
+// ── Report ─────────────────────────────────────────────────────────────
+// A PDF per newsroom, plus one self-contained overview page of them all.
+// The PDF libraries are large, so they load on first use, pinned like supabase-js.
+
+const fileSlug = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'newsroom';
+
+// pdfmake document for one newsroom: the same content as its overview section.
+function reportPdf(n, withScripts, generated) {
+  const m = reportModel(n);
+  const C = { ink: '#1b1f27', muted: '#667085', line: '#dfe3ea', head: '#f4f6f9', ok: '#18794e', no: '#9a3412', eop: '#b42318', seg: '#4338ca', segBg: '#eef0ff' };
+  const th = (text, right) => ({ text: text.toUpperCase(), style: 'th', alignment: right ? 'right' : 'left' });
+  const lines = { hLineWidth: (i) => (i === 0 ? 0 : 0.5), vLineWidth: () => 0, hLineColor: () => C.line,
+    fillColor: (i) => (i === 0 ? C.head : null), paddingLeft: () => 5, paddingRight: () => 5, paddingTop: () => 4, paddingBottom: () => 4 };
+  const table = (widths, head, body) => ({ table: { headerRows: 1, dontBreakRows: true, widths, body: [head, ...body] }, layout: lines });
+  const heading = (text, sub) => ({ text: [text.toUpperCase(), sub ? { text: `   ${sub}`, style: 'sub', characterSpacing: 0, bold: false } : ''], style: 'h3', headlineLevel: 1 });
+  const sub = (text) => ({ text, style: 'sub' });
+  const band = (text, color, fillColor, extra) => [{ text, colSpan: 6, color, fillColor, bold: true, fontSize: 8, characterSpacing: 0.8, ...extra }, {}, {}, {}, {}, {}];
+
+  const conf = m.pitches.map(({ p, outcome: o, format }, i) => [
+    { text: String(i + 1), alignment: 'right' },
+    { stack: [{ text: [{ text: p.slug || '', bold: true }, PITCH_SOURCES[p.source] ? { text: `  ${isFollow(p) ? 'FOLLOW-UP · ' : ''}${PITCH_SOURCES[p.source].label}`, style: 'sub', bold: true } : '', format ? { text: `  ${format}`, style: 'sub' } : ''] }, p.angle,
+      webUrl(p.source_url) ? { text: `${sourceLabel(p.source)}: ${webUrl(p.source_url)}`, link: webUrl(p.source_url), style: 'sub', decoration: 'underline' } : ''].filter(Boolean) },
+    p.pitched_by || '',
+    { text: [{ text: o.label, bold: o.tone !== 'sub', color: C[o.tone] || C.muted }, o.extra || '', o.time ? { text: `  ${o.time}`, style: 'sub' } : ''] },
+    p.ep_note || '',
+  ]);
+  const ro = m.rows.map((r) => {
+    if (r.kind === 'eop') return band('END OF PROGRAMME', '#ffffff', C.eop, { characterSpacing: 1.2 });
+    if (r.kind === 'seg') return band(r.label.toUpperCase(), C.seg, C.segBg);
+    const s = r.s, color = r.dim ? C.muted : C.ink;
+    return [
+      { text: String(r.num), alignment: 'right' },
+      { stack: [{ text: [{ text: s.slug || '', bold: true }, r.tags ? { text: `  ${r.tags}`, style: 'sub' } : ''] },
+        s.brief ? sub(`Pitch: ${s.brief}${s.pitched_by ? ` (${s.pitched_by})` : ''}`) : '',
+        webUrl(s.source_url) ? { text: `${sourceLabel(linkSource(s.source_url))}: ${webUrl(s.source_url)}`, link: webUrl(s.source_url), style: 'sub', decoration: 'underline' } : ''].filter(Boolean) },
+      s.format || '',
+      { stack: [s.reporter, s.presenter ? sub(s.presenter) : ''].filter(Boolean) },
+      { text: dur(s.duration), alignment: 'right' },
+      CHECKED[s.completed] || '—',
+    ].map((cell) => ({ ...(typeof cell === 'object' ? cell : { text: cell }), color }));
+  });
+  const feedback = m.feedback.flatMap((g) => [
+    { text: g.title, style: 'h4', headlineLevel: 1 },
+    { table: { widths: ['*'], dontBreakRows: true, body: g.items.map((f) => [{ stack: [
+      f.quote ? { text: `“${f.quote}”`, italics: true, color: C.muted, margin: [0, 0, 0, 3] } : '',
+      { text: f.body },
+    ].filter(Boolean) }]) },
+      layout: { hLineWidth: () => 0, vLineWidth: (i) => (i === 0 ? 2 : 0), vLineColor: () => '#b45309',
+        paddingLeft: () => 9, paddingRight: () => 0, paddingTop: () => 2, paddingBottom: () => 5 } },
+  ]);
+  // Source mix, follow-ups in full and PA pitches: the same as the web report.
+  const link = (url, text) => ({ text: text || url, link: url, decoration: 'underline' });
+  const mixBlock = { table: { widths: ['*'], body: [[{ stack: [{ text: m.summary.mix, bold: true }, sub(m.summary.note), m.summary.follow, m.summary.pipeline] }]] },
+    layout: { hLineColor: () => C.line, vLineColor: () => C.line, hLineWidth: () => 0.5, vLineWidth: () => 0.5, paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 5, paddingBottom: () => 5 },
+    margin: [0, 8, 0, 0] };
+  const follows = m.follows.flatMap((f) => [
+    { text: [f.p.slug || '', { text: `  FOLLOW-UP · ${f.outlet}`, style: 'sub', bold: true }], style: 'h4', headlineLevel: 1 },
+    { table: { widths: ['*'], dontBreakRows: true, body: [[{ stack: [
+      f.headline ? `${f.outlet}: “${f.headline}”` : `${f.outlet} story`,
+      f.url ? { ...link(f.url), style: 'sub' } : '',
+      sub(`${f.claims}${f.p.pitched_by ? ` · Pitched by ${f.p.pitched_by}` : ''}`),
+      ...f.answers.flatMap(({ q, a }) => [{ text: q, bold: true, margin: [0, 4, 0, 0] }, a ? { text: a } : { text: '— not answered —', color: C.muted }]),
+      sub(`Status: ${f.status}`),
+    ].filter(Boolean) }]] },
+      layout: { hLineWidth: () => 0, vLineWidth: (i) => (i === 0 ? 2 : 0), vLineColor: () => '#f59e0b', paddingLeft: () => 9, paddingRight: () => 0, paddingTop: () => 2, paddingBottom: () => 5 } },
+  ]);
+  const wires = m.wires.length ? [{ ul: m.wires.map((w) => ({ text: [{ text: w.p.slug || '', bold: true }, w.headline ? `: ${w.headline}` : '',
+    w.url ? '  ' : '', w.url ? link(w.url, 'PA story') : '', { text: `  · ${w.status}`, style: 'sub' }] })) }] : [];
+  const scripts = withScripts ? m.scripts.flatMap((s) => [
+    { text: s.slug || '', style: 'h4', headlineLevel: 1 },
+    { table: { widths: ['*'], body: [[{ text: s.script, preserveLeadingSpaces: true, fontSize: 9.5, lineHeight: 1.3 }]] },
+      layout: { hLineColor: () => C.line, vLineColor: () => C.line, hLineWidth: () => 0.5, vLineWidth: () => 0.5, fillColor: () => C.head,
+        paddingLeft: () => 8, paddingRight: () => 8, paddingTop: () => 6, paddingBottom: () => 6 } },
+  ]) : [];
+
+  return {
+    pageSize: 'A4', pageMargins: [40, 40, 40, 50],
+    info: { title: `${n.name}: conference and running order`, creator: 'Moira:Studio' },
+    defaultStyle: { font: 'Roboto', fontSize: 9.5, color: C.ink, lineHeight: 1.15 },
+    styles: {
+      h1: { fontSize: 18, bold: true, margin: [0, 0, 0, 4] },
+      h3: { fontSize: 10, bold: true, characterSpacing: 0.6, margin: [0, 16, 0, 6] },
+      h4: { fontSize: 10, bold: true, margin: [0, 10, 0, 4] },
+      th: { fontSize: 7.5, bold: true, color: C.muted, characterSpacing: 0.4 },
+      sub: { fontSize: 8.5, color: C.muted },
+      meta: { fontSize: 9, color: C.muted },
+    },
+    // Never leave a heading alone at the foot of a page.
+    // Tables count as on the page even when their first row is not, so look for
+    // text before the page footer.
+    pageBreakBefore: (node, nodes) => {
+      if (node.headlineLevel !== 1) return false;
+      const after = nodes.getFollowingNodesOnPage(), end = after.findIndex((f) => f.id === 'footer');
+      return !after.slice(0, end < 0 ? undefined : end).some((f) => f.text !== undefined);
+    },
+    footer: (page, pages) => ({ id: 'footer', margin: [40, 18, 40, 0], fontSize: 8, color: C.muted, columns: [
+      `${n.name} · Moira:Studio · generated ${fullWhen(generated)}`, { text: `Page ${page} of ${pages}`, alignment: 'right', width: 'auto' }] }),
+    content: [
+      { text: `${n.name}: conference and running order`, style: 'h1' },
+      { text: m.meta, style: 'meta' },
+      { text: `Snapshot generated ${fullWhen(generated)}. Running orders may have changed since.`, style: 'meta', margin: [0, 2, 0, 0] },
+      mixBlock,
+      heading('News conference', m.counts),
+      m.pitches.length ? table(['auto', '*', 'auto', 'auto', '*'], [th('#', true), th('Pitch'), th('Pitched by'), th('Outcome'), th('EP note')], conf) : sub('No pitches recorded.'),
+      ...(follows.length ? [heading('Follow-up pitches', String(m.follows.length)), ...follows] : []),
+      ...(wires.length ? [heading('Wire pitches', String(m.wires.length)), ...wires] : []),
+      heading('Running order', `TRT ${dur(m.trt)}${m.target}`),
+      ro.length ? table(['auto', '*', 'auto', 'auto', 'auto', 'auto'],
+        [th('#', true), th('Slug'), th('Format'), th('Reporter / presenter'), th('Dur', true), th('Checked')], ro) : sub('No stories.'),
+      ...(feedback.length ? [heading('EP feedback'), ...feedback] : []),
+      ...(scripts.length ? [heading('Scripts'), ...scripts] : []),
+    ],
+  };
+}
+
+const REPORT_LIBS = [
+  ['https://cdn.jsdelivr.net/npm/pdfmake@0.3.13/build/pdfmake.min.js', 'sha384-/JVvlU2iyYp0inj2VW4i5tkJYTSn1bVkfuhFeEXFTXMMgiSjR+dDD1pnRqgl5csu'],
+  ['https://cdn.jsdelivr.net/npm/pdfmake@0.3.13/build/vfs_fonts.js', 'sha384-pkBUW1wxcm6m7ZjKDxADnNHqnz+Sx9sAL1ndsLNv/GZnWZgodPYsju1yxeyQnn0c'],
+  ['https://cdn.jsdelivr.net/npm/jszip@3.10.2/dist/jszip.min.js', 'sha384-DdGlNq+wVXAn83gXqwyeFHB7iyXy6L0rLrNzgDmhKWPjiJLg9vj6qosYmZmkMfQ+'],
+];
+let reportLibs = null;
+function loadReportLibs() {
+  // In order: the fonts file registers itself with pdfMake.
+  reportLibs ??= REPORT_LIBS.reduce((prev, [src, integrity]) => prev.then(() => new Promise((resolve, reject) => {
+      const el = Object.assign(document.createElement('script'), { src, integrity, crossOrigin: 'anonymous' });
+      el.onload = resolve;
+      el.onerror = () => { el.remove(); reject(new Error('Could not load the PDF tools. Check your connection and try again.')); };
+      document.head.appendChild(el);
+    })), Promise.resolve()).then(() => {
+    // Reports never fetch images or fonts from the web.
+    window.pdfMake.setUrlAccessPolicy?.(() => false);
+  }).catch((e) => { reportLibs = null; throw e; });
+  return reportLibs;
+}
+
+// One PDF per newsroom; several go into a single ZIP, since browsers block a burst of downloads.
+async function reportPdfs(data, withScripts, generated, stamp) {
+  await loadReportLibs();
+  const files = [], used = new Set();
+  for (const n of data) {
+    const base = `moira-desk-${fileSlug(n.name)}-${stamp}`;
+    let name = `${base}.pdf`;
+    for (let i = 2; used.has(name); i++) name = `${base}-${i}.pdf`; // newsrooms can share a name
+    used.add(name);
+    files.push({ name, blob: await window.pdfMake.createPdf(reportPdf(n, withScripts, generated)).getBlob() });
+  }
+  if (files.length === 1) return { name: files[0].name, url: URL.createObjectURL(files[0].blob), count: 1 };
+  const zip = new window.JSZip();
+  files.forEach((f) => zip.file(f.name, f.blob));
+  const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/zip' });
+  return { name: `moira-desk-reports-${stamp}.zip`, url: URL.createObjectURL(blob), count: files.length };
+}
+
+let lastReport = null;
+async function generateReport(ids, withScripts) {
+  ids = ids.filter((id) => room(id));
+  if (!ids.length) return;
+  const data = await rpc('admin_conference', { p_newsroom_ids: ids, p_scripts: withScripts });
+  const generated = new Date(), pad = (x) => String(x).padStart(2, '0');
+  const stamp = `${generated.getFullYear()}-${pad(generated.getMonth() + 1)}-${pad(generated.getDate())}-${pad(generated.getHours())}${pad(generated.getMinutes())}`; // local time
+  const who = data.length === 1 ? fileSlug(data[0].name) : 'conference';
+  if (lastReport) { URL.revokeObjectURL(lastReport.url); if (lastReport.pdf) URL.revokeObjectURL(lastReport.pdf.url); }
+  const report = lastReport = { url: URL.createObjectURL(new Blob([buildReport(data, withScripts, generated)], { type: 'text/html' })), name: `moira-desk-${who}-${stamp}-overview.html`, pdf: null };
+  const totals = data.map((n) => `<li><strong>${esc(n.name)}</strong>: ${n.pitches.length} pitched, ${n.pitches.filter((p) => p.status === 'picked').length} picked, ${n.stories.filter((s) => s.type !== 'segment').length} stories${n.feedback?.length ? `, ${n.feedback.length} EP comment${n.feedback.length === 1 ? '' : 's'}` : ''}</li>`).join('');
+  const many = data.length > 1;
+  const show = (pdfButton, note = '') => openDialog('Report ready', `<ul style="margin:0;padding-left:20px">${totals}</ul>
+    <p class="muted" style="margin:0">${many ? `A PDF for each newsroom, in one ZIP file` : 'A PDF of this newsroom'}${withScripts ? ', with scripts' : ''}. The overview is a single web page of ${many ? 'every ticked newsroom' : 'the same report'} for viewing on screen. Both are a snapshot of right now.</p>${note}`,
+    `<button data-action="open-report">Open overview</button>
+     <a class="btn" href="${report.url}" download="${esc(report.name)}">Download overview</a>
+     ${pdfButton}`);
+
+  show(`<button class="primary" disabled>Preparing PDF${many ? 's' : ''}…</button>`);
+  try {
+    const pdf = await reportPdfs(data, withScripts, generated, stamp);
+    if (lastReport !== report) { URL.revokeObjectURL(pdf.url); return; } // a newer report replaced this one
+    report.pdf = pdf;
+    show(`<a class="btn primary" href="${pdf.url}" download="${esc(pdf.name)}">${many ? `Download ${pdf.count} PDFs (ZIP)` : 'Download PDF'}</a>`);
+  } catch (e) {
+    if (lastReport !== report) return;
+    show(`<button class="primary" data-action="report">Try again</button>`, `<div class="msg err" style="margin:0">${esc(e.message || 'Could not make the PDFs.')}</div>`);
+  }
+}
+
+// ── Data ───────────────────────────────────────────────────────────────
+
+async function loadRooms() {
+  state.loading = true; render();
+  try { state.rooms = await rpc('admin_newsrooms') || []; }
+  catch (e) { state.message = { text: e.message, tone: 'err' }; }
+  try {
+    const tutorRooms = await rpc('tutor_newsrooms') || [];
+    const enabled = new Map(tutorRooms.map(r => [r.newsroom_id, r.tutor_code_available]));
+    state.rooms.forEach(r => { r.tutor_code_available = enabled.get(r.newsroom_id); });
+  } catch { state.rooms.forEach(r => { delete r.tutor_code_available; }); }
+  try { state.tutors = await rpc('admin_tutors') || []; state.tutorError = null; }
+  catch { state.tutors = []; state.tutorError = 'Tutor management is not available yet. Apply the tutor-access database update to enable it.'; }
+  try { await refreshFolders(); }
+  catch { state.folders = []; state.foldersAvailable = false; state.folderError = 'Folders could not be loaded. If this is your first use, apply the admin-folders SQL update, then Refresh. Newsrooms are listed below.'; }
+  state.selected = new Set([...state.selected].filter(id => room(id)));
+  if (state.manageId && !room(state.manageId)) {
+    state.message = { text: `${state.manageName} is no longer available, so its Manage panel has closed.`, tone: 'warn' };
+    state.manageId = null;
+  }
+  state.loading = false; render();
+}
+
+// Clear sensitive views whenever the session ends.
+function clearSession() {
+  discardWall();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  document.querySelectorAll('.fullscreen-code').forEach((el) => el.remove());
+  closeDialog(); dlg.innerHTML = '';
+  if (lastReport) { URL.revokeObjectURL(lastReport.url); if (lastReport.pdf) URL.revokeObjectURL(lastReport.pdf.url); lastReport = null; }
+  Object.assign(state, { user: null, rooms: [], tutors: [], folders: [], message: null, manageId: null, manageName: '', roomSearch: '',
+    reportIds: [], conferenceIds: [], resetIds: [], resetKind: null });
+  state.selected.clear();
+  render();
+}
+
+async function afterSignIn(user) {
+  let admin = false;
+  try { admin = await rpc('is_admin'); } catch {}
+  if (!admin) {
+    await sb.auth.signOut();
+    state.user = null;
+    state.loginError = "Signed in, but this account isn't an admin. Add it to the admins table (see the ADMIN section of supabase-schema.sql).";
+    render();
+    return;
+  }
+  state.user = user; state.loginError = null;
+  state.folders = []; state.foldersAvailable = false; state.folderError = null;
+  state.selected = new Set(); state.roomSearch = ''; state.folderOpen = new Set(['unfiled']); state.manageId = null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(folderPreferenceKey()));
+    if (Array.isArray(saved)) state.folderOpen = new Set(saved.filter(id => typeof id === 'string'));
+  } catch {}
+  await loadRooms();
+}
+
+// Cloudflare Turnstile token for signing in, when a site key is set. Loaded
+// only then, so the page otherwise keeps to its one pinned library.
+function getCaptchaToken() {
+  if (!TURNSTILE_SITE_KEY) return Promise.resolve(undefined);
+  if (location.protocol === 'file:') {
+    return Promise.reject(new Error('The human check needs this page served from localhost, not opened as a file. See the README.'));
+  }
+  return new Promise((resolve, reject) => {
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999';
+    document.body.appendChild(box);
+    const done = (fn, v) => { box.remove(); fn(v); };
+    const draw = () => window.turnstile.render(box, {
+      sitekey: TURNSTILE_SITE_KEY, appearance: 'interaction-only',
+      callback: t => done(resolve, t),
+      'error-callback': () => done(reject, new Error('The human check failed. Check this hostname is allowed for the Turnstile widget.')),
+      'timeout-callback': () => done(reject, new Error('The human check timed out. Try again.')),
+    });
+    if (window.turnstile) return draw();
+    const sc = document.createElement('script');
+    sc.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    sc.async = true; sc.onload = draw;
+    sc.onerror = () => done(reject, new Error('Could not load the human check (Cloudflare Turnstile).'));
+    document.head.appendChild(sc);
+  });
+}
+
+// ── Events ─────────────────────────────────────────────────────────────
+
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('[data-form]');
+  if (!form) return;
+  e.preventDefault();
+  const kind = form.dataset.form, id = form.dataset.id;
+  if (form.dataset.busy) return;
+  form.dataset.busy = 'true';
+  const submit = e.submitter; if (submit) submit.disabled = true;
+  try {
+    if (kind === 'alert') {
+      await sendBroadcastAlert();
+    } else if (kind === 'folder') {
+      await rpc('save_admin_folder', { p_name: document.getElementById('folder-name').value.trim(), p_folder_id: id || null });
+      await refreshFolders(); closeDialog(); render();
+    } else if (kind === 'move-folder') {
+      const destination = document.getElementById('move-folder').value || null;
+      const moving = [...folderMoveIds];
+      await rpc('move_admin_newsrooms', { p_newsroom_ids: moving, p_folder_id: destination });
+      await refreshFolders();
+      moving.forEach(id => state.selected.delete(id));
+      state.folderOpen.add(destination || 'unfiled'); rememberFolderOpen();
+      closeDialog(); flash(`Moved ${moving.length} newsroom${moving.length === 1 ? '' : 's'}.`);
+    } else if (kind === 'remove-folder') {
+      await rpc('delete_admin_folder', { p_folder_id: id });
+      await refreshFolders(); state.folderOpen.delete(id); state.folderOpen.add('unfiled'); rememberFolderOpen();
+      closeDialog(); flash('Folder removed. Its newsrooms are now Unfiled.');
+    } else if (kind === 'login') {
+      state.loginEmail = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      let captchaToken;
+      try { captchaToken = await getCaptchaToken(); }
+      catch (err) { state.loginError = err.message; render(); return; }
+      const { data, error } = await sb.auth.signInWithPassword({
+        email: state.loginEmail, password, ...(captchaToken ? { options: { captchaToken } } : {}) });
+      if (error) { state.loginError = error.message; render(); return; }
+      await afterSignIn(data.user);
+    } else if (kind === 'tutor') {
+      const email = document.getElementById('tutor-email').value.trim();
+      const ids = [...document.querySelectorAll('[name="tutor-room"]:checked')].map(el => el.value);
+      const enableCodes = !!document.getElementById('tutor-enable-codes')?.checked;
+      await rpc('set_tutor_access', { p_email: email, p_newsroom_ids: ids });
+      // Only where the code is known to be off: turning one on always makes a new code.
+      let turnedOn = 0;
+      const failed = [];
+      if (enableCodes) for (const x of ids) {
+        const r = room(x);
+        if (r?.tutor_code_available !== false) continue;
+        try { await rpc('set_tutor_join_code', { p_newsroom_id: x, p_enabled: true }); r.tutor_code_available = true; turnedOn++; }
+        catch { failed.push(r.name); }
+      }
+      closeDialog(); await loadRooms();
+      flash(`Access saved for ${email}.${turnedOn ? ` Tutor codes turned on for ${plural(turnedOn, 'newsroom')}.` : ''}${failed.length ? ` Couldn't turn on the tutor code for ${failed.join(', ')}.` : ''}`, failed.length ? 'warn' : 'ok');
+    } else if (kind === 'room-tutors') {
+      const r = room(id), want = new Set([...document.querySelectorAll('[name="room-tutor"]:checked')].map(el => el.value));
+      let changed = 0;
+      for (const t of state.tutors) {
+        if (want.has(t.user_id) === t.newsroom_ids.includes(id)) continue;
+        await rpc('set_tutor_access', { p_email: t.email, p_newsroom_ids: want.has(t.user_id) ? [...t.newsroom_ids, id] : t.newsroom_ids.filter(x => x !== id) });
+        changed++;
+      }
+      closeDialog(); await loadRooms(); flash(changed ? `Tutors updated for ${r.name}.` : 'No changes to save.');
+    } else if (kind === 'create') {
+      const name = document.getElementById('new-name').value.trim();
+      const code = document.getElementById('new-code').value.trim() || null;
+      const folder = document.getElementById('new-room-folder')?.value || '';
+      const kindChoice = document.querySelector('input[name="new-kind"]:checked')?.value === 'social' ? 'social' : 'tv';
+      const [made] = await rpc('create_newsroom', { p_name: name, p_code: code, p_kind: kindChoice });
+      // The newsroom exists now; a failed move only leaves it in Unfiled.
+      let moveError = null;
+      if (folder && made?.newsroom_id) {
+        try { await rpc('move_admin_newsrooms', { p_newsroom_ids: [made.newsroom_id], p_folder_id: folder }); state.folderOpen.add(folder); rememberFolderOpen(); }
+        catch (err) { moveError = err.message; }
+      }
+      await loadRooms();
+      if (moveError) { state.message = { text: `${name} was created but couldn't be moved to its folder, so it's in Unfiled. ${moveError}`, tone: 'warn' }; renderRooms(); }
+      showCode(name, made.join_code);
+    } else if (kind === 'code') {
+      const code = await rpc('set_newsroom_code', { p_newsroom_id: id,
+        p_code: document.getElementById('code-custom').value.trim() || null,
+        p_remove_members: document.getElementById('code-kick').checked });
+      const name = room(id).name;
+      await loadRooms();
+      showCode(name, code);
+    } else if (kind === 'rename') {
+      await rpc('rename_newsroom', { p_newsroom_id: id, p_name: document.getElementById('rename-name').value.trim() });
+      closeDialog(); flash('Renamed.'); await loadRooms();
+    } else if (kind === 'delete') {
+      const r = room(id);
+      if (document.getElementById('delete-confirm').value.trim() !== r.name) { alert(`Type "${r.name}" exactly to confirm.`); return; }
+      await rpc('delete_newsroom', { p_newsroom_id: id });
+      if (state.manageId === id) closeManage(false);
+      closeDialog(); flash(`Deleted ${r.name}.`); await loadRooms();
+    }
+  } catch (err) {
+    if (dlg.open) {
+      const body = dlg.querySelector('.body');
+      body.querySelector('.msg.err.inline')?.remove();
+      body.insertAdjacentHTML('beforeend', `<div class="msg err inline" style="margin:0">${esc(err.message)}</div>`);
+    } else flash(err.message, 'err');
+  } finally {
+    delete form.dataset.busy;
+    if (submit?.isConnected) submit.disabled = false;
+  }
+});
+
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-action]');
+  if (!btn || btn.disabled) return;
+  const a = btn.dataset.action, id = btn.dataset.id;
+  try {
+    if (a === 'new-folder') folderDialog();
+    else if (a === 'rename-folder') folderDialog(id);
+    else if (a === 'remove-folder') removeFolderDialog(id);
+    else if (a === 'move-room') moveFolderDialog([id]);
+    else if (a === 'move-selected') moveFolderDialog(tickedIds());
+    else if (a === 'clear-selection') { state.selected.clear(); renderRooms(); }
+    else if (a === 'dismiss-msg') { state.message = null; renderRooms(); }
+    else if (a === 'toggle-folder') {
+      state.folderOpen.has(id) ? state.folderOpen.delete(id) : state.folderOpen.add(id);
+      rememberFolderOpen();
+      renderRooms();
+    }
+    // Acts on the newsrooms showing in the folder, so the search applies.
+    else if (a === 'tick-folder') {
+      const shown = matchingRooms(newsroomGroups().find(g => g.id === id)?.rooms || []);
+      const all = shown.every(r => state.selected.has(r.newsroom_id));
+      shown.forEach(r => (all ? state.selected.delete(r.newsroom_id) : state.selected.add(r.newsroom_id)));
+      renderRooms();
+    }
+    else if (a === 'new-room') newRoomDialog();
+    else if (a === 'manage') openManage(id);
+    else if (a === 'close-manage') closeManage();
+    else if (a === 'room-tutors') roomTutorsDialog(id);
+    else if (a === 'tutor-tick-all') {
+      dlg.querySelectorAll(`.tutor-group[data-group="${CSS.escape(id)}"] label:not([hidden]) input[name="tutor-room"]`).forEach(el => { el.checked = true; });
+    }
+    else if (a === 'close-dialog') closeDialog();
+    else if (a === 'refresh') { state.message = null; await loadRooms(); }
+    else if (a === 'sign-out') { await sb.auth.signOut(); clearSession(); }
+    else if (a === 'alert') alertDialog();
+    else if (a === 'wall') await openWall(tickedIds());
+    else if (await wallClick(a, id, btn)) { /* handled by the shared wall */ }
+    else if (a === 'report-dialog') reportDialog(id ? [id] : tickedIds());
+    else if (a === 'report-generate') {
+      state.reportScripts = !!document.getElementById('report-scripts')?.checked;
+      btn.disabled = true; btn.textContent = 'Generating…';
+      await generateReport(state.reportIds, state.reportScripts);
+    }
+    else if (a === 'report') await generateReport(state.reportIds, state.reportScripts);
+    else if (a === 'open-report') { if (lastReport) window.open(lastReport.url, '_blank', 'noopener'); }
+    else if (a === 'new-conference') conferenceDialog([id]);
+    else if (a === 'new-conference-selected') conferenceDialog(tickedIds());
+    else if (a === 'conference-report') reportDialog(state.conferenceIds);
+    else if (a === 'start-conference') {
+      const ids = state.conferenceIds.filter((x) => room(x)), names = ids.map((x) => room(x).name);
+      if (!ids.length) return;
+      btn.disabled = true;
+      try { for (const x of ids) await rpc('start_conference', { p_newsroom_id: x }); }
+      catch (err) { await loadRooms(); throw err; }
+      closeDialog(); flash(`New conference started for ${names.join(', ')}.`); await loadRooms();
+    }
+    else if (a === 'clear-order') resetDialog('order', [id]);
+    else if (a === 'clear-order-selected') resetDialog('order', tickedIds());
+    else if (a === 'reset-room') resetDialog('all', [id]);
+    else if (a === 'reset-selected') resetDialog('all', tickedIds());
+    else if (a === 'reset-report') reportDialog(state.resetIds, true);
+    else if (a === 'confirm-reset') {
+      const k = RESETS[state.resetKind], ids = state.resetIds.filter((x) => room(x)), names = ids.map((x) => room(x).name);
+      if (!k || !ids.length) return;
+      btn.disabled = true;
+      try { for (const x of ids) await rpc(k.rpc, { p_newsroom_id: x }); }
+      catch (err) { await loadRooms(); throw err; }
+      closeDialog(); flash(k.done(names.join(', '))); await loadRooms();
+    }
+    else if (a === 'clear-producer') {
+      const r = room(id);
+      if (!confirm(`Free the producer role in ${r.name}? ${r.producer_name ? `${r.producer_name} will no longer be producer, and ` : ''}someone else can claim it.`)) return;
+      await rpc('clear_producer', { p_newsroom_id: id });
+      flash(`${r.name} has no producer now.`); await loadRooms();
+    }
+    else if (a === 'add-tutor') tutorDialog(null);
+    else if (a === 'edit-tutor') tutorDialog(id);
+    else if (a === 'tutor-codes') {
+      const tutor = state.tutors.find(t => t.user_id === id);
+      if (tutor) tutorCodesDialog(tutor.email, tutor.newsroom_ids);
+    }
+    else if (a === 'remove-tutor') {
+      const tutor = state.tutors.find(t => t.user_id === id); if (!tutor) return;
+      if (!confirm(`Remove tutor access for ${tutor.email}? If they know a student join code, rotate that code separately to prevent future joins.`)) return;
+      await rpc('remove_tutor', { p_user_id: id }); closeDialog(); await loadRooms(); flash('Tutor access removed.');
+    }
+    else if (a === 'tutor-code') await tutorCodeDialog(id);
+    else if (a === 'rotate-tutor-code' || a === 'toggle-tutor-code') {
+      if (a === 'rotate-tutor-code') {
+        if (!confirm('The previous tutor code will stop accepting new joins. Students already in the newsroom will stay. Continue?')) return;
+      }
+      const enabled = a === 'rotate-tutor-code' || btn.getAttribute('aria-checked') !== 'true';
+      const fromPanel = !!btn.closest('#manage');
+      const controls = [...dlg.querySelectorAll('[data-action="toggle-tutor-code"], [data-action="rotate-tutor-code"]')];
+      controls.forEach(el => { el.disabled = true; });
+      try {
+        await rpc('set_tutor_join_code', { p_newsroom_id: id, p_enabled: enabled });
+        const r = room(id);
+        if (r) r.tutor_code_available = enabled;
+        render();
+        // The panel's switch just updates the panel; the dialog's shows the new code.
+        if (!fromPanel) await tutorCodeDialog(id);
+      } finally { controls.forEach(el => { el.disabled = false; }); }
+    }
+    else if (a === 'code') codeDialog(id);
+    else if (a === 'rename') renameDialog(id);
+    else if (a === 'delete') deleteDialog(id);
+    else if (a === 'kick') {
+      const r = room(id);
+      if (!confirm(`Remove all ${r.members} members of ${r.name}? They'll need the code again. Tip: making a new code does this and stops old codes working.`)) return;
+      const n = await rpc('remove_newsroom_members', { p_newsroom_id: id });
+      flash(`Removed ${n} member${n === 1 ? '' : 's'} from ${r.name}.`); await loadRooms();
+    }
+    else if (a === 'copy-code') { await navigator.clipboard.writeText(btn.dataset.code); btn.textContent = 'Copied'; }
+    else if (a === 'fullscreen-code') showFullscreen(btn.dataset.name, btn.dataset.code);
+  } catch (err) {
+    if (wall) { wall.error = err.message; renderWall(); }
+    else if (dlg.open && ['toggle-tutor-code', 'rotate-tutor-code', 'start-conference', 'confirm-reset', 'report-generate'].includes(a)) {
+      btn.disabled = false;
+      if (a === 'report-generate') btn.textContent = 'Generate';
+      const body = dlg.querySelector('.body');
+      body.querySelector('.msg.err.inline')?.remove();
+      body.insertAdjacentHTML('beforeend', `<div class="msg err inline" role="alert">${esc(err.message)}</div>`);
+    }
+    else flash(err.message, 'err');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (wallKeydown(e, dlg.open)) return;
+  if (e.key === 'Escape' && state.manageId && !dlg.open && !wall && !document.querySelector('.fullscreen-code')) closeManage();
+});
+
+// Ticking newsrooms for the wall, the report and new conferences.
+document.addEventListener('change', (e) => {
+  if (e.target.classList?.contains('sel-room')) {
+    e.target.checked ? state.selected.add(e.target.dataset.id) : state.selected.delete(e.target.dataset.id);
+    renderRooms();
+  }
+});
+
+document.addEventListener('input', e => {
+  if (e.target.id === 'room-search') { state.roomSearch = e.target.value; renderRooms(); }
+  else if (e.target.id === 'tutor-filter') {
+    const q = e.target.value.trim().toLocaleLowerCase();
+    dlg.querySelectorAll('.tutor-group').forEach(g => {
+      const labels = [...g.querySelectorAll('label.check')];
+      labels.forEach(l => { l.hidden = !!q && !l.textContent.toLocaleLowerCase().includes(q); });
+      g.hidden = labels.every(l => l.hidden);
+    });
+  }
+});
+
+// A session that ends elsewhere (an expired refresh token) also clears the page.
+sb?.auth.onAuthStateChange?.((event) => { if (event === 'SIGNED_OUT' && state.user) clearSession(); });
+
+(async () => {
+  if (!configured) { render(); return; }
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) await afterSignIn(session.user);
+  else render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "atemIp": "169.254.215.71",
+  "port": 4456,
+  "allowedOrigins": [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://moiranews.github.io"
+  ],
+  "confirmTimeoutMs": 1000,
+  "matchWindowMs": 500
+}
